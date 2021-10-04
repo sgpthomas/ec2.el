@@ -3,13 +3,14 @@
 ;; Copyright (C) 2021 Samuel Thomas
 
 ;; Author: Samuel Thomas <sgt@cs.utexas.edu>
-;; Package-Requires: (dash transient deferred json)
+;; Package-Requires: (dash transient deferred json evil)
 
 ;;; Code:
 (require 'json)
 (require 'deferred)
 (require 'transient)
 (require 'dash)
+(require 'evil)
 
 (defgroup ec2/faces nil
   "Faces used by aws mode.")
@@ -110,7 +111,6 @@
     (deferred:$
       (deferred:next
 	`(lambda ()
-	   (message "cmd: %s" (list "aws" ,@c))
 	   (deferred:process "aws" ,@c "--no-cli-pager")))
       (deferred:nextc it
 	(lambda (json-string)
@@ -160,7 +160,7 @@
 
 (cl-defmethod transient-infix-set ((obj ec2/table-option--security-group) value)
   "Look up value in table"
-  (let* ((row (--find (equal (car it) value) ec2/security-groups))
+  (let* ((row (--find (equal (car it) value) (ec2/table-data ec2/security-groups--table)))
 	 (sid (cadr row)))
     (oset obj value sid)))
 
@@ -288,14 +288,14 @@
     (nth num row)))
 
 (defun ec2/get-security-groups (a b c)
-  (--map (nth 0 it) ec2/security-groups))
+  (--map (nth 0 it) (ec2/table-data ec2/security-groups--table)))
 
 (defun ec2/get-instance-types (_ _ _)
   (--map (format "%s\t%s cores\t %s GiB ram"
 		 (nth 0 it)
 		 (nth 1 it)
 		 (/ (nth 2 it) 1024.0))
-	 ec2/instance-types))
+	 (ec2/table-data ec2/instance-types--table)))
 
 (defun ec2/refresh-data ()
   "Refresh EC2 data"
@@ -311,24 +311,22 @@
 	(ec2/render)))))
 
 ;; ===== Major Mode ===== ;;
-(defvar aws-mode-map
+(defvar ec2-mode-map
   (let ((map (make-keymap)))
-    (suppress-keymap map t)
-    (set-keymap-parent map special-mode-map)
-    (evil-define-key 'normal map "."           'ec2/examine)
-    (evil-define-key 'normal map "r"           'ec2/render)
-    (evil-define-key 'normal map "@"           'ec2/refresh-data)
-    (evil-define-key 'normal map "\C-i"        'ec2/transient) ; tab
+    ;; (suppress-keymap map t)
+    (define-key map "."           'ec2/examine)
+    (define-key map "r"           'ec2/refresh-data)
+    (define-key map "\C-i"        'ec2/transient) ; tab
     ;; (define-key map "j" 'next-line)
     ;; (define-key map "k" 'previous-line)
     map)
-  "Keymap for Stack Exchange: Network Browser major mode")
+  "Keymap for EC2 Mode")
 
-(define-derived-mode aws-mode special-mode "Aws Mode"
+;;;###autoload
+(define-derived-mode ec2-mode special-mode "Ec2 Mode"
   "Mode for the AWS Dashboard."
   (buffer-disable-undo)
-  ;; (setq-local line-move-visual t)
-  )
+  (evil-make-overriding-map ec2-mode-map 'normal))
 
 (defun ec2/dashboard ()
   "Opens the AWS information dashboard."
@@ -339,7 +337,7 @@
     ;; clear buffer. probably don't need to do this ultimately
     (with-current-buffer buf
       (ec2/setup-buffer)
-      (aws-mode)
+      (ec2-mode)
       (ec2/render))
 
     (setq-local buffer-read-only t)))
@@ -389,5 +387,7 @@
 	 (--map (ec2/--make-row table-id it) it)
 	 (string-join it "\n")
 	 (format "%s\n" it))))
+
+(provide 'ec2)
 
 ;;; ec2.el ends here
