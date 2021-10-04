@@ -105,7 +105,6 @@
 	'ec2/key-pairs--table
 	'ec2/instance-types--table))
 
-
 (defun ec2/run-cmd-async (cmd)
   (let ((c cmd))
     (deferred:$
@@ -128,16 +127,23 @@
 (defun ec2/launch (&optional args)
   (interactive
    (list (transient-args 'ec2/launch-from-ami)))
-  (let* ((precmd (list "run-instances" "--image-id " (ec2/get-col (point) 1)))
-	 (cmd (string-join (append precmd args) " ")))
-    (ec2/run-cmd cmd)))
+  (let* ((cmd (list "ec2" "run-instances" "--image-id" (ec2/get-col (point) 1)))
+	 (cmd (append cmd args)))
+    (deferred:$
+      (deferred:next
+	(lambda () (ec2/run-cmd-async cmd)))
+      (deferred:nextc it
+	(lambda (_) (ec2/render))))))
 
 (defun ec2/terminate (&optional args)
   (interactive
    (list (transient-args 'ec2/instances-transient)))
-  (let* ((precmd (list "terminate-instances" "--instance-id " (ec2/get-col (point) 1)))
-	 (cmd (string-join (append precmd args) " ")))
-    (ec2/run-cmd cmd)))
+  (let* ((cmd (list "ec2" "terminate-instances" "--instance-id" (ec2/get-col (point) 1))))
+    (deferred:$
+      (deferred:next
+	(lambda () (ec2/run-cmd-async cmd)))
+      (deferred:nextc it
+	(lambda (_) (ec2/render))))))
 
 (defun ec2/transient-quit ()
   (interactive)
@@ -229,16 +235,12 @@
 			(format "Launching instance from: %s" (ec2/get-col p 1))))
 		["Arguments"
 		 (ec2/launch-from-ami:--security-group-ids)
-		 ;; ("-c" "Count" "--count=")
 		 (ec2/launch-from-ami:--count)
 		 (ec2/launch-from-ami:--instance-type)
 		 (ec2/launch-from-ami:--key-pairs)]
 		["Launch"
 		 ("l" "Launch" ec2/launch)
-		 ("q" "Quit" ec2/transient-quit)
-		 ]
-   ]
-  )
+		 ("q" "Quit" ec2/transient-quit)]])
 
 (transient-define-prefix ec2/instances-transient ()
   "Manage Instance State"
@@ -264,7 +266,8 @@
 	 (trans (pcase table-name
 		  ("Images" 'ec2/launch-from-ami)
 		  ("Instances" 'ec2/instances-transient))))
-    (funcall trans)))
+    (when trans
+      (funcall trans))))
 
 (general-define-key
  :states '(normal visual emacs)
@@ -317,8 +320,6 @@
     (define-key map "."           'ec2/examine)
     (define-key map "r"           'ec2/refresh-data)
     (define-key map "\C-i"        'ec2/transient) ; tab
-    ;; (define-key map "j" 'next-line)
-    ;; (define-key map "k" 'previous-line)
     map)
   "Keymap for EC2 Mode")
 
@@ -381,7 +382,8 @@
 				    'font-lock-face 'ec2/face-column-heading)
 			columns)))
     (--> (cons columns data)
-	 (--map (--map (format "%s%s" (car it) (make-string (- (cdr it) (length (car it))) ?\s))
+	 (--map (--map (format "%s%s" (car it)
+			       (make-string (- (cdr it) (length (car it))) ?\s))
 		       (-zip it colwidths))
 		it)
 	 (--map (ec2/--make-row table-id it) it)
