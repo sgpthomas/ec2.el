@@ -19,8 +19,7 @@
   '((t :foreground "IndianRed1"
        :weight bold
        :variable t
-       :inherit shortdoc-heading
-       ))
+       :inherit shortdoc-heading))
   "Face for table title"
   :group 'ec2/faces)
 
@@ -153,7 +152,6 @@
   (interactive "d")
   (let* ((table-name (get-text-property pt 'ec2/table-id))
 	 (row (get-text-property pt 'ec2/table-row))
-	 (_ (message "%s" row))
 	 (ssh-addr (nth 3 row))
 	 (default-directory (format "/ssh:ubuntu@%s:~" ssh-addr)))
     (eshell)))
@@ -182,10 +180,11 @@
 (defun ec2/transient-init-from-history (name obj &optional default)
   (let* ((hist (--find (equal name (car it))
 		       transient-history))
-	 (recent (cadr hist)))
+	 (recent (if hist (cadr hist) nil)))
     (if recent
 	(transient-infix-set obj recent)
-      (transient-infix-set obj default))))
+      (when default
+	(transient-infix-set obj default)))))
 
 (transient-define-infix ec2/launch-from-ami:--security-group-ids ()
   :class 'ec2/table-option--security-group
@@ -204,7 +203,7 @@
   :key "c"
   :argument "--count="
   :init-value (-cut ec2/transient-init-from-history
-		    'ec2/launch-from-ami:--count <> 1)
+		    'ec2/launch-from-ami:--count <> "1")
   :prompt "Count: "
   :always-read t)
 
@@ -227,7 +226,7 @@
 		    'ec2/launch-from-ami:--key-pairs <>)
   :prompt "Key Pair Name: "
   :always-read t
-  :choices (lambda (_ _ _) ec2/key-pairs))
+  :choices (lambda (_ _ _) (ec2/table-data ec2/key-pairs--table)))
 
 (transient-define-prefix ec2/launch-from-ami ()
   "Launch EC2 Instance from AMI: %s"
@@ -255,7 +254,6 @@
     ("t" "Terminate" ec2/terminate)
     ("e" "Enter machine" ec2/ssh-into-instance
      :if (lambda ()
-	   (message "test: '%s'" (string-trim (ec2/get-col (point) 2)))
 	   (equal (string-trim (ec2/get-col (point) 2)) "running")))]
    ["Quit"
     ("q" "Quit" ec2/transient-quit)]])
