@@ -154,7 +154,7 @@
 	 (row (get-text-property pt 'ec2/table-row))
 	 (ssh-addr (nth 3 row))
 	 (default-directory (format "/ssh:ubuntu@%s:~" ssh-addr))
-	 (eshell-buffer-name "*ec2:ssh eshell*"))
+	 (eshell-buffer-name (format "*ec2:ssh eshell:%s*" ssh-addr)))
     (eshell)))
 
 (defvar ec2/launch-instance-count 1
