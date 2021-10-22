@@ -248,10 +248,10 @@
 			(format "Managing instance: %s"
 				(ec2/get-col p 1))))
    ["Actions"
-    ("s" "Stop" "-s")
-    ("g" "Start" "-g")
-    ("r" "Reboot" "-r")
-    ("h" "Hibernate" "-h")
+    ;; ("s" "Stop" "-s")
+    ;; ("g" "Start" "-g")
+    ;; ("r" "Reboot" "-r")
+    ;; ("h" "Hibernate" "-h")
     ("t" "Terminate" ec2/terminate)
     ("e" "Enter machine" ec2/ssh-into-instance
      :if (lambda ()
@@ -338,7 +338,8 @@
     (with-current-buffer buf
       (ec2/setup-buffer)
       (ec2-mode)
-      (ec2/render))
+      (ec2/render)
+      (ec2/refresh-data))
 
     (setq-local buffer-read-only t)))
 
