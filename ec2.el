@@ -151,7 +151,7 @@
   (interactive)
   (message "quit"))
 
-
+;;;###autoload
 (defun ec2/ssh-into-instance (&optional pt)
   (interactive "d")
   (let* ((table-name (get-text-property pt 'ec2/table-id))
@@ -159,7 +159,30 @@
 	 (ssh-addr (nth 3 row))
 	 (default-directory (format "/ssh:ubuntu@%s:~" ssh-addr))
 	 (eshell-buffer-name (format "*ec2:ssh eshell:%s*" ssh-addr)))
-    (eshell)))
+    (eshell 1)))
+
+(defun ec2/list-sessions (&optional pt)
+  (interactive "d")
+  (let* ((table-name (get-text-property pt 'ec2/table-id))
+	 (row (get-text-property pt 'ec2/table-row))
+	 (ssh-addr (nth 3 row))
+	 (res (shell-command-to-string
+	       (format "ssh ubuntu@%s tmux list-sessions"
+		       ssh-addr)))
+	 )
+    (message "%s" res)))
+
+(defun ec2/session-status (&optional pt)
+  (interactive "d")
+  (let* ((table-name (get-text-property pt 'ec2/table-id))
+	 (row (get-text-property pt 'ec2/table-row))
+	 (ssh-addr (nth 3 row))
+	 (session-name (read-string "Session name: "))
+	 (res (shell-command-to-string
+	       (format "ssh ubuntu@%s tmux capture-pane -t %s -pS 20"
+		       ssh-addr
+		       session-name))))
+    (message "%s" res)))
 
 (defvar ec2/launch-instance-count 1
   "This is documentation")
@@ -252,14 +275,20 @@
 			(format "Managing instance: %s"
 				(ec2/get-col p 1))))
    ["Actions"
-    ;; ("s" "Stop" "-s")
-    ;; ("g" "Start" "-g")
-    ;; ("r" "Reboot" "-r")
-    ;; ("h" "Hibernate" "-h")
     ("t" "Terminate" ec2/terminate)
-    ("e" "Enter machine" ec2/ssh-into-instance
+    ("e" "Eshell" ec2/ssh-into-instance
      :if (lambda ()
-	   (equal (string-trim (ec2/get-col (point) 2)) "running")))]
+	   (equal (string-trim (ec2/get-col (point) 2)) "running")))
+    ("l" "Tmux Sessions" ec2/list-sessions
+     :if (lambda ()
+	   (equal (string-trim (ec2/get-col (point) 2)) "running")))
+    ("s" "Status" ec2/session-status
+     :if (lambda ()
+	   (equal (string-trim (ec2/get-col (point) 2)) "running")))
+    ;; ("c" "Command" ec2/remote-command
+    ;;  :if (lambda ()
+    ;; 	   (equal (string-trim (ec2/get-col (point) 2)) "running")))
+    ]
    ["Quit"
     ("q" "Quit" ec2/transient-quit)]])
 
