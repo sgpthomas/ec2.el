@@ -1,0 +1,3 @@
+#+TITLE: Manage AWS EC2 instances from Emacs
+
+This is very much a package that is designed for my use case. If there is any interest in this at all, I can cleanup the code base, make the interactions more consistent, and make this presentable to the public.
