@@ -166,28 +166,59 @@
 		       (buffer-list)))))
     (eshell n-esh-bufs)))
 
-(defun ec2/list-sessions (&optional pt)
-  (interactive "d")
-  (let* ((table-name (get-text-property pt 'ec2/table-id))
-	 (row (get-text-property pt 'ec2/table-row))
-	 (ssh-addr (nth 3 row))
-	 (res (shell-command-to-string
-	       (format "ssh ubuntu@%s tmux list-sessions"
-		       ssh-addr)))
-	 )
-    (message "%s" res)))
+(defun ec2/get-session-name (ssh-addr)
+  (let* ((raw-sessions (shell-command-to-string
+			(format "ssh ubuntu@%s tmux list-sessions"
+				ssh-addr)))
+	 (names (--map
+		 (car (s-split ":" it))
+		 (--filter
+		  (not (s-equals? "" it))
+		  (s-split "\n" raw-sessions)))))
+    (cond
+     ((eq (length names) 0) (error "No live sessions."))
+     ((eq (length names) 1) (car names))
+     (t (completing-read "Sessions: " names nil t)))))
 
 (defun ec2/session-status (&optional pt)
   (interactive "d")
   (let* ((table-name (get-text-property pt 'ec2/table-id))
 	 (row (get-text-property pt 'ec2/table-row))
-	 (ssh-addr (nth 3 row))
-	 (session-name (read-string "Session name: "))
+	 (ssh-addr (s-trim (nth 3 row)))
+	 (session-name (ec2/get-session-name ssh-addr))
 	 (res (shell-command-to-string
 	       (format "ssh ubuntu@%s tmux capture-pane -t %s -pS 20"
 		       ssh-addr
 		       session-name))))
     (message "%s" res)))
+
+(defun ec2/new-session (&optional pt)
+  (interactive "d")
+  (let* ((table-name (get-text-property pt 'ec2/table-id))
+	 (row (get-text-property pt 'ec2/table-row))
+	 (ssh-addr (s-trim (nth 3 row)))
+	 (session-name (read-string "New session name: "))
+	 (cmd (read-string "Command: ")))
+    (shell-command-to-string
+     (format "ssh ubuntu@%s tmux new -d -s %s"
+	     ssh-addr
+	     session-name))
+    (shell-command-to-string
+     (format "ssh ubuntu@%s \"tmux send '%s' ENTER\""
+	     ssh-addr
+	     cmd))))
+
+(defun ec2/kill-session (&optional pt)
+  (interactive "d")
+  (let* ((table-name (get-text-property pt 'ec2/table-id))
+	 (row (get-text-property pt 'ec2/table-row))
+	 (ssh-addr (s-trim (nth 3 row)))
+	 (session-name (ec2/get-session-name ssh-addr))
+	 (res (shell-command-to-string
+	       (format "ssh ubuntu@%s tmux kill-pane -t %s"
+		       ssh-addr
+		       session-name))))
+    res))
 
 (defvar ec2/launch-instance-count 1
   "This is documentation")
@@ -284,16 +315,15 @@
     ("e" "Eshell" ec2/ssh-into-instance
      :if (lambda ()
 	   (equal (string-trim (ec2/get-col (point) 2)) "running")))
-    ("l" "Tmux Sessions" ec2/list-sessions
+    ("n" "New Session" ec2/new-session
      :if (lambda ()
 	   (equal (string-trim (ec2/get-col (point) 2)) "running")))
-    ("s" "Status" ec2/session-status
+    ("s" "Session Output" ec2/session-status
      :if (lambda ()
 	   (equal (string-trim (ec2/get-col (point) 2)) "running")))
-    ;; ("c" "Command" ec2/remote-command
-    ;;  :if (lambda ()
-    ;; 	   (equal (string-trim (ec2/get-col (point) 2)) "running")))
-    ]
+    ("k" "Kill Session" ec2/kill-session
+     :if (lambda ()
+	   (equal (string-trim (ec2/get-col (point) 2)) "running")))]
    ["Quit"
     ("q" "Quit" ec2/transient-quit)]])
 
