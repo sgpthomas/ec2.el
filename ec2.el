@@ -156,10 +156,15 @@
   (interactive "d")
   (let* ((table-name (get-text-property pt 'ec2/table-id))
 	 (row (get-text-property pt 'ec2/table-row))
-	 (ssh-addr (nth 3 row))
+	 (ssh-addr (s-trim (nth 3 row)))
 	 (default-directory (format "/ssh:ubuntu@%s:~" ssh-addr))
-	 (eshell-buffer-name (format "*ec2:ssh eshell:%s*" ssh-addr)))
-    (eshell 1)))
+	 (tramp-connection-timeout 10)
+	 (eshell-buffer-name (format "*ec2:ssh eshell:%s*" ssh-addr))
+	 (n-esh-bufs (length
+		      (--filter
+		       (equal 'eshell-mode (with-current-buffer it major-mode))
+		       (buffer-list)))))
+    (eshell n-esh-bufs)))
 
 (defun ec2/list-sessions (&optional pt)
   (interactive "d")
