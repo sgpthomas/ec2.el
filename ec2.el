@@ -213,12 +213,13 @@
   (let* ((table-name (get-text-property pt 'ec2/table-id))
 	 (row (get-text-property pt 'ec2/table-row))
 	 (ssh-addr (s-trim (nth 3 row)))
-	 (session-name (ec2/get-session-name ssh-addr))
-	 (res (shell-command-to-string
-	       (format "ssh ubuntu@%s tmux kill-pane -t %s"
-		       ssh-addr
-		       session-name))))
-    res))
+	 (session-name (ec2/get-session-name ssh-addr)))
+    (if (y-or-n-p (format "Are you sure you want to kill '%s'?" session-name))
+	(shell-command-to-string
+	 (format "ssh ubuntu@%s tmux kill-pane -t %s"
+		 ssh-addr
+		 session-name))
+      (error "Aborted."))))
 
 (defvar ec2/launch-instance-count 1
   "This is documentation")
