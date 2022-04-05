@@ -337,13 +337,6 @@
     (when trans
       (funcall trans))))
 
-(general-define-key
- :states '(normal visual emacs)
- :prefix "SPC"
-
- "ad" 'ec2/dashboard
- "ps" 'ec2/send-project)
-
 (defun ec2/examine ()
   "Examine thing at point"
   (interactive)
