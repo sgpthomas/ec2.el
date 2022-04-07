@@ -192,6 +192,26 @@
 		       session-name))))
     (message "%s" res)))
 
+(defun ec2/resource-usage (&optional pt)
+  (interactive "d")
+  (let* ((table-name (get-text-property pt 'ec2/table-id))
+	 (row (get-text-property pt 'ec2/table-row))
+	 (ssh-addr (s-trim (nth 3 row)))
+	 (res (shell-command-to-string
+	       (format "ssh ubuntu@%s cat /proc/meminfo" ssh-addr)))
+	 (lines-raw (--map (s-split ":" it) (s-split "\n" res)))
+	 (lines (--map (cons (car it) (cadr it)) lines-raw))
+
+	 (clean (lambda (line)
+		  (let* ((kb-str (s-trim (cdr line)))
+			 (raw-kb (string-to-number (car (s-split " " kb-str))))
+			 (gb (/ raw-kb 1e6)))
+		    gb)))
+	 (mem-total (funcall clean (assoc "MemTotal" lines)))
+	 (mem-available (funcall clean (assoc "MemAvailable" lines)))
+	 (mem-used (- mem-total mem-available)))
+    (message "Used: %s Gb/%s Gb" mem-used mem-total)))
+
 (defun ec2/new-session (&optional pt)
   (interactive "d")
   (let* ((table-name (get-text-property pt 'ec2/table-id))
@@ -320,6 +340,9 @@
      :if (lambda ()
 	   (equal (string-trim (ec2/get-col (point) 2)) "running")))
     ("s" "Session Output" ec2/session-status
+     :if (lambda ()
+	   (equal (string-trim (ec2/get-col (point) 2)) "running")))
+    ("r" "Resource Usage" ec2/resource-usage
      :if (lambda ()
 	   (equal (string-trim (ec2/get-col (point) 2)) "running")))
     ("k" "Kill Session" ec2/kill-session
