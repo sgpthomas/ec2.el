@@ -187,10 +187,14 @@
 	 (ssh-addr (s-trim (nth 3 row)))
 	 (session-name (ec2/get-session-name ssh-addr))
 	 (res (shell-command-to-string
-	       (format "ssh ubuntu@%s tmux capture-pane -t %s -pS 20"
+	       (format "ssh ubuntu@%s tmux capture-pane -t %s -pS -100000"
 		       ssh-addr
-		       session-name))))
-    (message "%s" res)))
+		       session-name)))
+	 (res-buff (get-buffer-create (format "*ec2-tmux-output-%s*" session-name))))
+    (switch-to-buffer-other-window res-buff)
+    (with-current-buffer res-buff
+      (erase-buffer)
+      (insert res))))
 
 (defun ec2/resource-usage (&optional pt)
   (interactive "d")
@@ -230,6 +234,10 @@
 	 (ssh-addr (s-trim (nth 3 row)))
 	 (session-name (ec2/get-session-name ssh-addr))
 	 (cmd (read-string "Command: ")))
+    (shell-command-to-string
+     (format "ssh ubuntu@%s \"tmux send '%s' ENTER\""
+	     ssh-addr
+	     cmd))
     (shell-command-to-string
      (format "ssh ubuntu@%s \"tmux send '%s' ENTER\""
 	     ssh-addr
