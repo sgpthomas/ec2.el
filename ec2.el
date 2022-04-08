@@ -217,12 +217,19 @@
   (let* ((table-name (get-text-property pt 'ec2/table-id))
 	 (row (get-text-property pt 'ec2/table-row))
 	 (ssh-addr (s-trim (nth 3 row)))
-	 (session-name (read-string "New session name: "))
-	 (cmd (read-string "Command: ")))
+	 (session-name (read-string "New session name: ")))
     (shell-command-to-string
      (format "ssh ubuntu@%s tmux new -d -s %s"
 	     ssh-addr
-	     session-name))
+	     session-name))))
+
+(defun ec2/command-session (&optional pt)
+  (interactive "d")
+  (let* ((table-name (get-text-property pt 'ec2/table-id))
+	 (row (get-text-property pt 'ec2/table-row))
+	 (ssh-addr (s-trim (nth 3 row)))
+	 (session-name (ec2/get-session-name ssh-addr))
+	 (cmd (read-string "Command: ")))
     (shell-command-to-string
      (format "ssh ubuntu@%s \"tmux send '%s' ENTER\""
 	     ssh-addr
@@ -335,8 +342,12 @@
     ("t" "Terminate" ec2/terminate)
     ("e" "Eshell" ec2/ssh-into-instance
      :if (lambda ()
-	   (equal (string-trim (ec2/get-col (point) 2)) "running")))
+	   (equal (string-trim (ec2/get-col (point) 2)) "running")))]
+   ["Tmux Session"
     ("n" "New Session" ec2/new-session
+     :if (lambda ()
+	   (equal (string-trim (ec2/get-col (point) 2)) "running")))
+    ("c" "Command" ec2/command-session
      :if (lambda ()
 	   (equal (string-trim (ec2/get-col (point) 2)) "running")))
     ("s" "Session Output" ec2/session-status
@@ -366,9 +377,7 @@
 
   (let* ((table-name (get-text-property (point) 'ec2/table-name))
 	 (row-data (get-text-property (point) 'ec2/table-row))
-	 ;; (colnum (car props))
-	 (image-id (nth 1 row-data))
-	 )
+	 (image-id (nth 1 row-data)))
     (message "%s %s" row-data image-id)))
 
 (defun ec2/get-col (pt num)
@@ -479,34 +488,34 @@
 ;; (with-output-to-temp-buffer "*test*"
 ;;     (print "20"))
 
-(defun ec2/sync-project (src-dir remote remote-dir)
-  (let ((buf-name (format "*rsync:%s*" remote)))
-    (with-output-to-temp-buffer buf-name
-      (async-shell-command
-       (format "rsync -rv --exclude=.git --exclude=target %s '%s:%s'"
-	       src-dir
-	       remote
-	       remote-dir)
-       buf-name))))
+;; (defun ec2/sync-project (src-dir remote remote-dir)
+;;   (let ((buf-name (format "*rsync:%s*" remote)))
+;;     (with-output-to-temp-buffer buf-name
+;;       (async-shell-command
+;;        (format "rsync -rv --exclude=.git --exclude=target %s '%s:%s'"
+;; 	       src-dir
+;; 	       remote
+;; 	       remote-dir)
+;;        buf-name))))
 
 ;; (ec2/sync-project "~/Research/diospyros" "ubuntu@18.190.28.142" "~/diospyros")
 
-(defun ec2/send-project ()
-  (interactive)
+;; (defun ec2/send-project ()
+;;   (interactive)
 
-  (message "%s" ec2/instance--table)
-  (let* ((src-dir (magit-toplevel))
-	 (instances
-	  (--filter (equal (nth 2 it) "running") (ec2/table-data ec2/instance--table)))
-	 (instances
-	  (--map (format "ubuntu@%s" (nth 3 it)) instances)))
-    (if (not (length=0 instances))
-	(let ((inst (completing-read "Instance: " instances))
-	      (remote-dir (read-string "Remote path: "
-				       (car ec2/sync-history)
-				       'ec2/sync-history)))
-	  (ec2/sync-project src-dir inst remote-dir))
-      (message "No running instances."))))
+;;   (message "%s" ec2/instance--table)
+;;   (let* ((src-dir (magit-toplevel))
+;; 	 (instances
+;; 	  (--filter (equal (nth 2 it) "running") (ec2/table-data ec2/instance--table)))
+;; 	 (instances
+;; 	  (--map (format "ubuntu@%s" (nth 3 it)) instances)))
+;;     (if (not (length=0 instances))
+;; 	(let ((inst (completing-read "Instance: " instances))
+;; 	      (remote-dir (read-string "Remote path: "
+;; 				       (car ec2/sync-history)
+;; 				       'ec2/sync-history)))
+;; 	  (ec2/sync-project src-dir inst remote-dir))
+;;       (message "No running instances."))))
 
 (provide 'ec2)
 
