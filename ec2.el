@@ -235,12 +235,9 @@
 	 (session-name (ec2/get-session-name ssh-addr))
 	 (cmd (read-string "Command: ")))
     (shell-command-to-string
-     (format "ssh ubuntu@%s \"tmux send '%s' ENTER\""
+     (format "ssh ubuntu@%s \"tmux send -t %s '%s' ENTER\""
 	     ssh-addr
-	     cmd))
-    (shell-command-to-string
-     (format "ssh ubuntu@%s \"tmux send '%s' ENTER\""
-	     ssh-addr
+	     session-name
 	     cmd))))
 
 (defun ec2/kill-session (&optional pt)
