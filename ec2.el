@@ -194,7 +194,7 @@
     (switch-to-buffer-other-window res-buff)
     (with-current-buffer res-buff
       (erase-buffer)
-      (insert res))))
+      (insert (s-trim res)))))
 
 (defun ec2/resource-usage (&optional pt)
   (interactive "d")
