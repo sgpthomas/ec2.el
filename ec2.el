@@ -3,7 +3,7 @@
 ;; Copyright (C) 2021 Samuel Thomas
 
 ;; Author: Samuel Thomas <sgt@cs.utexas.edu>
-;; Package-Requires: (dash transient deferred json evil)
+;; Package-Requires: (dash transient deferred json evil tmux)
 
 ;;; Code:
 (require 'json)
@@ -11,6 +11,7 @@
 (require 'transient)
 (require 'dash)
 (require 'evil)
+(require 'tmux)
 
 (defgroup ec2/faces nil
   "Faces used by aws mode.")
@@ -29,7 +30,7 @@
   :group 'ec2/faces)
 
 (cl-defstruct (ec2/table (:constructor ec2/table--create)
-			 (:copier nil))
+                         (:copier nil))
   "Structure for storing information about tables"
   (name :read-only t)
   data
@@ -44,65 +45,65 @@
    (deferred:$
     (deferred:next
       `(lambda ()
-	 (ec2/run-cmd-async
-	  `("ec2" ,@(ec2/table-cmd ,table) "--query" ,(ec2/table-query ,table)))))
+         (ec2/run-cmd-async
+          `("ec2" ,@(ec2/table-cmd ,table) "--query" ,(ec2/table-query ,table)))))
     (deferred:nextc it
       `(lambda (data)
-	 (setf (ec2/table-data ,table) data))))))
+         (setf (ec2/table-data ,table) data))))))
 
 (defun ec2/render-table (table)
   (let* ((table (symbol-value table))
-	 (name (ec2/table-name table))
-	 (data (ec2/table-data table))
-	 (cols (ec2/table-columns table))
-	 (render? (ec2/table-render? table)))
+         (name (ec2/table-name table))
+         (data (ec2/table-data table))
+         (cols (ec2/table-columns table))
+         (render? (ec2/table-render? table)))
     (when render?
       (insert (propertize name
-			  'font-lock-face 'ec2/face-table-heading))
+                          'font-lock-face 'ec2/face-table-heading))
       (insert "\n")
       (insert (ec2/info-section name data cols))
       (insert "\n"))))
 
 (defvar ec2/images--table
   (ec2/table--create :name "Images"
-		     :cmd '("describe-images" "--owner" "self")
-		     :query "Images[*].[Name, ImageId, State, Description]"
-		     :columns '("Name" "Id" "State" "Description")
-		     :render? t)
+                     :cmd '("describe-images" "--owner" "self")
+                     :query "Images[*].[Name, ImageId, State, Description]"
+                     :columns '("Name" "Id" "State" "Description")
+                     :render? t)
   "Table that stores images")
 
 (defvar ec2/instance--table
   (ec2/table--create :name "Instances"
-		     :cmd '("describe-instances")
-		     :query "Reservations[*].Instances[].[InstanceType, InstanceId, State.Name, PublicIpAddress]"
-		     :columns '("Type" "Id" "State" "Ip Address")
-		     :render? t))
+                     :cmd '("describe-instances")
+                     :query "Reservations[*].Instances[].[InstanceType, InstanceId, State.Name, PublicIpAddress]"
+                     :columns '("Type" "Id" "State" "Ip Address")
+                     :render? t))
 
 (defvar ec2/security-groups--table
   (ec2/table--create :name "Security Groups"
-		     :cmd '("describe-security-groups")
-		     :query "SecurityGroups[*].[GroupName, GroupId]"
-		     :render? nil
-		     :columns '("Name" "Id")))
+                     :cmd '("describe-security-groups")
+                     :query "SecurityGroups[*].[GroupName, GroupId]"
+                     :render? nil
+                     :columns '("Name" "Id")))
 
 (defvar ec2/key-pairs--table
   (ec2/table--create :name "Key Pairs"
-		     :cmd '("describe-key-pairs")
-		     :query "KeyPairs[*].KeyName"
-		     :render? nil))
+                     :cmd '("describe-key-pairs")
+                     :query "KeyPairs[*].KeyName"
+                     :render? nil))
 
 (defvar ec2/instance-types--table
   (ec2/table--create :name "Instance Types"
-		     :cmd '("describe-instance-types")
-		     :query "InstanceTypes[*].[InstanceType, VCpuInfo.DefaultVCpus, MemoryInfo.SizeInMiB]"
-		     :render? nil))
+                     :cmd '("describe-instance-types")
+                     :query "InstanceTypes[*].[InstanceType, VCpuInfo.DefaultVCpus, MemoryInfo.SizeInMiB]"
+                     :render? nil))
 
 (defvar ec2/tables
   (list 'ec2/images--table
-	'ec2/instance--table
-	'ec2/security-groups--table
-	'ec2/key-pairs--table
-	'ec2/instance-types--table))
+        'ec2/instance--table
+        'ec2/security-groups--table
+        'ec2/key-pairs--table
+        'ec2/instance-types--table))
 
 (defvar ec2/sync-history
   '())
@@ -111,31 +112,31 @@
   (let ((c cmd))
     (deferred:$
       (deferred:next
-	`(lambda ()
-	   (deferred:process "aws" ,@c "--no-cli-pager")))
+        `(lambda ()
+           (deferred:process "aws" ,@c "--no-cli-pager")))
       (deferred:nextc it
-	(lambda (json-string)
-	  (json-read-from-string json-string)))
+        (lambda (json-string)
+          (json-read-from-string json-string)))
       (deferred:nextc it
-	(lambda (x) (ec2/arrays-to-lists x))))))
+        (lambda (x) (ec2/arrays-to-lists x))))))
 
 (defun ec2/arrays-to-lists (elem)
   (if (vectorp elem)
       (-map 'ec2/arrays-to-lists elem)
     (if (or (equal elem nil) (equal elem ""))
-	"<none>"
+        "<none>"
       elem)))
 
 (defun ec2/launch (&optional args)
   (interactive
    (list (transient-args 'ec2/launch-from-ami)))
   (let* ((cmd (list "ec2" "run-instances" "--image-id" (ec2/get-col (point) 1)))
-	 (cmd (append cmd args)))
+         (cmd (append cmd args)))
     (deferred:$
       (deferred:next
-	(lambda () (ec2/run-cmd-async cmd)))
+        (lambda () (ec2/run-cmd-async cmd)))
       (deferred:nextc it
-	(lambda (_) (ec2/render))))))
+        (lambda (_) (ec2/render))))))
 
 (defun ec2/terminate (&optional args)
   (interactive
@@ -143,9 +144,9 @@
   (let* ((cmd (list "ec2" "terminate-instances" "--instance-id" (ec2/get-col (point) 1))))
     (deferred:$
       (deferred:next
-	(lambda () (ec2/run-cmd-async cmd)))
+        (lambda () (ec2/run-cmd-async cmd)))
       (deferred:nextc it
-	(lambda (_) (ec2/render))))))
+        (lambda (_) (ec2/render))))))
 
 (defun ec2/transient-quit ()
   (interactive)
@@ -155,92 +156,44 @@
 (defun ec2/ssh-into-instance (&optional pt)
   (interactive "d")
   (let* ((table-name (get-text-property pt 'ec2/table-id))
-	 (row (get-text-property pt 'ec2/table-row))
-	 (ssh-addr (s-trim (nth 3 row)))
-	 (default-directory (format "/ssh:ubuntu@%s:~" ssh-addr))
-	 (tramp-connection-timeout 10)
-	 (eshell-buffer-name (format "*ec2:ssh eshell:%s*" ssh-addr))
-	 (n-esh-bufs (length
-		      (--filter
-		       (equal 'eshell-mode (with-current-buffer it major-mode))
-		       (buffer-list)))))
+         (row (get-text-property pt 'ec2/table-row))
+         (ssh-addr (s-trim (nth 3 row)))
+         (default-directory (format "/ssh:ubuntu@%s:~" ssh-addr))
+         (tramp-connection-timeout 10)
+         (eshell-buffer-name (format "*ec2:ssh eshell:%s*" ssh-addr))
+         (n-esh-bufs (length
+                      (--filter
+                       (equal 'eshell-mode (with-current-buffer it major-mode))
+                       (buffer-list)))))
     (eshell n-esh-bufs)))
 
-(defun ec2/get-session-name (ssh-addr)
-  (let* ((raw-sessions (shell-command-to-string
-			(format "ssh ubuntu@%s tmux list-sessions"
-				ssh-addr)))
-	 (names (--map
-		 (car (s-split ":" it))
-		 (--filter
-		  (not (s-equals? "" it))
-		  (s-split "\n" raw-sessions)))))
-    (cond
-     ((eq (length names) 0) (error "No live sessions."))
-     ((eq (length names) 1) (car names))
-     (t (completing-read "Sessions: " names nil t)))))
-
-(defun ec2/session-status (&optional pt)
+(defun ec2/tmux-session (&optional pt)
   (interactive "d")
   (let* ((table-name (get-text-property pt 'ec2/table-id))
-	 (row (get-text-property pt 'ec2/table-row))
-	 (ssh-addr (s-trim (nth 3 row)))
-	 (session-name (ec2/get-session-name ssh-addr))
-	 (res (shell-command-to-string
-	       (format "ssh ubuntu@%s tmux capture-pane -t %s -pS -100000"
-		       ssh-addr
-		       session-name)))
-	 (res-buff (get-buffer-create (format "*ec2-tmux-output-%s*" session-name))))
-    (switch-to-buffer-other-window res-buff)
-    (with-current-buffer res-buff
-      (erase-buffer)
-      (insert (s-trim res)))))
+         (row (get-text-property pt 'ec2/table-row))
+         (ssh-addr (s-trim (nth 3 row)))
+	 (name (format "*tmux-%s*" ssh-addr)))
+    (if (get-buffer name)
+	(switch-to-buffer (get-buffer name))
+      (with-current-buffer (get-buffer-create name)
+	(tmux-session-mode)
+	(setq-local buffer-read-only 'nil)
+	(insert "-= Beginning =-\n")
+	(insert (format "addr: ubuntu@%s" ssh-addr))
+	(setq-local buffer-read-only t)
+	(setq-local tmux-ssh-addr ssh-addr)
+	(setq-local tmux-ssh-hostname "ubuntu")
+	(tmux/startup)
+	(switch-to-buffer (current-buffer))))))
 
 (defun ec2/resource-usage (&optional pt)
   (interactive "d")
   (let* ((table-name (get-text-property pt 'ec2/table-id))
-	 (row (get-text-property pt 'ec2/table-row))
-	 (ssh-addr (s-trim (nth 3 row)))
-	 (res (shell-command-to-string
-	       (format "ssh ubuntu@%s free -gh" ssh-addr))))
+         (row (get-text-property pt 'ec2/table-row))
+         (ssh-addr (s-trim (nth 3 row)))
+         (res (shell-command-to-string
+               (format "ssh ubuntu@%s free -gh" ssh-addr))))
     (message "%s" res)))
-
-(defun ec2/new-session (&optional pt)
-  (interactive "d")
-  (let* ((table-name (get-text-property pt 'ec2/table-id))
-	 (row (get-text-property pt 'ec2/table-row))
-	 (ssh-addr (s-trim (nth 3 row)))
-	 (session-name (read-string "New session name: ")))
-    (shell-command-to-string
-     (format "ssh ubuntu@%s tmux new -d -s %s"
-	     ssh-addr
-	     session-name))))
-
-(defun ec2/command-session (&optional pt)
-  (interactive "d")
-  (let* ((table-name (get-text-property pt 'ec2/table-id))
-	 (row (get-text-property pt 'ec2/table-row))
-	 (ssh-addr (s-trim (nth 3 row)))
-	 (session-name (ec2/get-session-name ssh-addr))
-	 (cmd (read-string "Command: ")))
-    (shell-command-to-string
-     (format "ssh ubuntu@%s \"tmux send -t %s '%s' ENTER\""
-	     ssh-addr
-	     session-name
-	     cmd))))
-
-(defun ec2/kill-session (&optional pt)
-  (interactive "d")
-  (let* ((table-name (get-text-property pt 'ec2/table-id))
-	 (row (get-text-property pt 'ec2/table-row))
-	 (ssh-addr (s-trim (nth 3 row)))
-	 (session-name (ec2/get-session-name ssh-addr)))
-    (if (y-or-n-p (format "Are you sure you want to kill '%s'?" session-name))
-	(shell-command-to-string
-	 (format "ssh ubuntu@%s tmux kill-pane -t %s"
-		 ssh-addr
-		 session-name))
-      (error "Aborted."))))
 
 (defvar ec2/launch-instance-count 1
   "This is documentation")
@@ -251,7 +204,7 @@
 (cl-defmethod transient-infix-set ((obj ec2/table-option--security-group) value)
   "Look up value in table"
   (let* ((row (--find (equal (car it) value) (ec2/table-data ec2/security-groups--table)))
-	 (sid (cadr row)))
+         (sid (cadr row)))
     (oset obj value sid)))
 
 (defclass ec2/table-option--instance-types (transient-option)
@@ -260,17 +213,17 @@
 (cl-defmethod transient-infix-set ((obj ec2/table-option--instance-types) value)
   "Look up value in table"
   (let* ((sp (split-string value "\t"))
-	 (name (car sp)))
+         (name (car sp)))
     (oset obj value name)))
 
 (defun ec2/transient-init-from-history (name obj &optional default)
   (let* ((hist (--find (equal name (car it))
-		       transient-history))
-	 (recent (if hist (cadr hist) nil)))
+                       transient-history))
+         (recent (if hist (cadr hist) nil)))
     (if recent
-	(transient-infix-set obj recent)
+        (transient-infix-set obj recent)
       (when default
-	(transient-infix-set obj default)))))
+        (transient-infix-set obj default)))))
 
 (transient-define-infix ec2/launch-from-ami:--security-group-ids ()
   :class 'ec2/table-option--security-group
@@ -278,7 +231,7 @@
   :key "s"
   :argument "--security-group-ids="
   :init-value (-cut ec2/transient-init-from-history
-		    'ec2/launch-from-ami:--security-group-ids <>)
+                    'ec2/launch-from-ami:--security-group-ids <>)
   :prompt "Security Group: "
   :choices 'ec2/get-security-groups
   :always-read t)
@@ -289,7 +242,7 @@
   :key "c"
   :argument "--count="
   :init-value (-cut ec2/transient-init-from-history
-		    'ec2/launch-from-ami:--count <> "1")
+                    'ec2/launch-from-ami:--count <> "1")
   :prompt "Count: "
   :always-read t)
 
@@ -309,7 +262,7 @@
   :key "k"
   :argument "--key-name="
   :init-value (-cut ec2/transient-init-from-history
-		    'ec2/launch-from-ami:--key-pairs <>)
+                    'ec2/launch-from-ami:--key-pairs <>)
   :prompt "Key Pair Name: "
   :always-read t
   :choices (lambda (_ _ _) (ec2/table-data ec2/key-pairs--table)))
@@ -317,51 +270,41 @@
 (transient-define-prefix ec2/launch-from-ami ()
   "Launch EC2 Instance from AMI: %s"
   [:description (lambda () (let ((p (point)))
-			(format "Launching instance from: %s" (ec2/get-col p 1))))
-		["Arguments"
-		 (ec2/launch-from-ami:--security-group-ids)
-		 (ec2/launch-from-ami:--count)
-		 (ec2/launch-from-ami:--instance-type)
-		 (ec2/launch-from-ami:--key-pairs)]
-		["Launch"
-		 ("l" "Launch" ec2/launch)
-		 ("q" "Quit" ec2/transient-quit)]])
+                        (format "Launching instance from: %s" (ec2/get-col p 1))))
+                ["Arguments"
+                 (ec2/launch-from-ami:--security-group-ids)
+                 (ec2/launch-from-ami:--count)
+                 (ec2/launch-from-ami:--instance-type)
+                 (ec2/launch-from-ami:--key-pairs)]
+                ["Launch"
+                 ("l" "Launch" ec2/launch)
+                 ("q" "Quit" ec2/transient-quit)]])
 
 (transient-define-prefix ec2/instances-transient ()
   "Manage Instance State"
   [:description (lambda () (let ((p (point)))
-			(format "Managing instance: %s"
-				(ec2/get-col p 1))))
+                        (format "Managing instance: %s"
+                                (ec2/get-col p 1))))
    ["Actions"
     ("t" "Terminate" ec2/terminate)
     ("e" "Eshell" ec2/ssh-into-instance
      :if (lambda ()
-	   (equal (string-trim (ec2/get-col (point) 2)) "running")))]
-   ["Tmux Session"
-    ("n" "New Session" ec2/new-session
+           (equal (string-trim (ec2/get-col (point) 2)) "running")))
+    ("s" "Tmux Session" ec2/tmux-session
      :if (lambda ()
-	   (equal (string-trim (ec2/get-col (point) 2)) "running")))
-    ("c" "Command" ec2/command-session
-     :if (lambda ()
-	   (equal (string-trim (ec2/get-col (point) 2)) "running")))
-    ("s" "Session Output" ec2/session-status
-     :if (lambda ()
-	   (equal (string-trim (ec2/get-col (point) 2)) "running")))
+           (equal (string-trim (ec2/get-col (point) 2)) "running")))
     ("r" "Resource Usage" ec2/resource-usage
      :if (lambda ()
-	   (equal (string-trim (ec2/get-col (point) 2)) "running")))
-    ("k" "Kill Session" ec2/kill-session
-     :if (lambda ()
-	   (equal (string-trim (ec2/get-col (point) 2)) "running")))]
+        (equal (string-trim (ec2/get-col (point) 2)) "running")))]
    ["Quit"
     ("q" "Quit" ec2/transient-quit)]])
 
 (defun ec2/transient ()
   (interactive)
   (let* ((table-name (get-text-property (point) 'ec2/table-id))
-	 (trans (pcase table-name
-		  ("Images" 'ec2/launch-from-ami)
-		  ("Instances" 'ec2/instances-transient))))
+         (trans (pcase table-name
+                  ("Images" 'ec2/launch-from-ami)
+                  ("Instances" 'ec2/instances-transient))))
     (when trans
       (funcall trans))))
 
@@ -370,8 +313,8 @@
   (interactive)
 
   (let* ((table-name (get-text-property (point) 'ec2/table-name))
-	 (row-data (get-text-property (point) 'ec2/table-row))
-	 (image-id (nth 1 row-data)))
+         (row-data (get-text-property (point) 'ec2/table-row))
+         (image-id (nth 1 row-data)))
     (message "%s %s" row-data image-id)))
 
 (defun ec2/get-col (pt num)
@@ -383,10 +326,10 @@
 
 (defun ec2/get-instance-types (_ _ _)
   (--map (format "%s\t%s cores\t %s GiB ram"
-		 (nth 0 it)
-		 (nth 1 it)
-		 (/ (nth 2 it) 1024.0))
-	 (ec2/table-data ec2/instance-types--table)))
+                 (nth 0 it)
+                 (nth 1 it)
+                 (/ (nth 2 it) 1024.0))
+         (ec2/table-data ec2/instance-types--table)))
 
 (defun ec2/refresh-data ()
   "Refresh EC2 data"
@@ -399,7 +342,7 @@
     ;; once everything is updated, render
     (deferred:nextc it
       (lambda (_)
-	(ec2/render)))))
+        (ec2/render)))))
 
 ;; ===== Major Mode ===== ;;
 (defvar ec2-mode-map
@@ -454,30 +397,30 @@
 
 (defun ec2/--make-row (table-id row)
   (let* ((row-text (string-join row "|"))
-	 (compl (format "%s" row-text)))
+         (compl (format "%s" row-text)))
     (propertize compl
-		'ec2/table-id table-id
-		'ec2/table-row row)))
+                'ec2/table-id table-id
+                'ec2/table-row row)))
 
 (defun ec2/info-section (table-id data columns)
   "Returns the input data using `column-model' rendered as a table."
 
   (let ((colwidths
-	 (--reduce-from
-	  (-map '-max (-zip-lists acc (-map 'length it)))
-	  (-map 'length columns) ; init acc to lengths of titles
-	  data))
-	(columns (--map (propertize it
-				    'font-lock-face 'ec2/face-column-heading)
-			columns)))
+         (--reduce-from
+          (-map '-max (-zip-lists acc (-map 'length it)))
+          (-map 'length columns) ; init acc to lengths of titles
+          data))
+        (columns (--map (propertize it
+                                    'font-lock-face 'ec2/face-column-heading)
+                        columns)))
     (--> (cons columns data)
-	 (--map (--map (format "%s%s" (car it)
-			       (make-string (- (cdr it) (length (car it))) ?\s))
-		       (-zip it colwidths))
-		it)
-	 (--map (ec2/--make-row table-id it) it)
-	 (string-join it "\n")
-	 (format "%s\n" it))))
+         (--map (--map (format "%s%s" (car it)
+                               (make-string (- (cdr it) (length (car it))) ?\s))
+                       (-zip it colwidths))
+                it)
+         (--map (ec2/--make-row table-id it) it)
+         (string-join it "\n")
+         (format "%s\n" it))))
 
 ;; (with-output-to-temp-buffer "*test*"
 ;;     (print "20"))
@@ -487,9 +430,9 @@
 ;;     (with-output-to-temp-buffer buf-name
 ;;       (async-shell-command
 ;;        (format "rsync -rv --exclude=.git --exclude=target %s '%s:%s'"
-;; 	       src-dir
-;; 	       remote
-;; 	       remote-dir)
+;;             src-dir
+;;             remote
+;;             remote-dir)
 ;;        buf-name))))
 
 ;; (ec2/sync-project "~/Research/diospyros" "ubuntu@18.190.28.142" "~/diospyros")
@@ -499,16 +442,16 @@
 
 ;;   (message "%s" ec2/instance--table)
 ;;   (let* ((src-dir (magit-toplevel))
-;; 	 (instances
-;; 	  (--filter (equal (nth 2 it) "running") (ec2/table-data ec2/instance--table)))
-;; 	 (instances
-;; 	  (--map (format "ubuntu@%s" (nth 3 it)) instances)))
+;;       (instances
+;;        (--filter (equal (nth 2 it) "running") (ec2/table-data ec2/instance--table)))
+;;       (instances
+;;        (--map (format "ubuntu@%s" (nth 3 it)) instances)))
 ;;     (if (not (length=0 instances))
-;; 	(let ((inst (completing-read "Instance: " instances))
-;; 	      (remote-dir (read-string "Remote path: "
-;; 				       (car ec2/sync-history)
-;; 				       'ec2/sync-history)))
-;; 	  (ec2/sync-project src-dir inst remote-dir))
+;;      (let ((inst (completing-read "Instance: " instances))
+;;            (remote-dir (read-string "Remote path: "
+;;                                     (car ec2/sync-history)
+;;                                     'ec2/sync-history)))
+;;        (ec2/sync-project src-dir inst remote-dir))
 ;;       (message "No running instances."))))
 
 (provide 'ec2)
