@@ -152,7 +152,6 @@
   (interactive)
   (message "quit"))
 
-;;;###autoload
 (defun ec2/ssh-into-instance (&optional pt)
   (interactive "d")
   (let* ((table-name (get-text-property pt 'ec2/table-id))
@@ -166,6 +165,16 @@
                        (equal 'eshell-mode (with-current-buffer it major-mode))
                        (buffer-list)))))
     (eshell n-esh-bufs)))
+
+(defun ec2/ssh-ansi-term (&optional pt)
+  (interactive "d")
+  (let* ((table-name (get-text-property pt 'ec2/table-id))
+         (row (get-text-property pt 'ec2/table-row))
+         (ssh-addr (s-trim (nth 3 row)))
+         (ssh-cmd (format "ssh ubuntu@%s\n" ssh-addr))
+         (ansi-term-buffer-name (format "ansi-term:%s" ssh-addr)))
+    (ansi-term "/bin/zsh" ansi-term-buffer-name)
+    (comint-send-string (concat "*" ansi-term-buffer-name "*") ssh-cmd)))
 
 (defun ec2/tmux-session (&optional pt)
   (interactive "d")
@@ -194,6 +203,21 @@
          (res (shell-command-to-string
                (format "ssh ubuntu@%s free -gh" ssh-addr))))
     (message "%s" res)))
+
+(defun ec2/make-ami (&optional args)
+  (interactive
+   (list (transient-args 'ec2/instances-transient)))
+  (let* ((name (read-string "Name: "))
+	 (description (read-string "Description: "))
+	 (cmd (list "ec2" "create-image" "--instance-id" (ec2/get-col (point) 1)
+		    "--name" name
+		    "--description" description
+		    "--no-reboot")))
+    (deferred:$
+      (deferred:next
+        (lambda () (ec2/run-cmd-async cmd)))
+      (deferred:nextc it
+        (lambda (_) (ec2/render))))))
 
 (defvar ec2/launch-instance-count 1
   "This is documentation")
@@ -290,12 +314,18 @@
     ("e" "Eshell" ec2/ssh-into-instance
      :if (lambda ()
            (equal (string-trim (ec2/get-col (point) 2)) "running")))
+    ("a" "Ansi-term" ec2/ssh-ansi-term
+     :if (lambda ()
+           (equal (string-trim (ec2/get-col (point) 2)) "running")))
     ("s" "Tmux Session" ec2/tmux-session
      :if (lambda ()
            (equal (string-trim (ec2/get-col (point) 2)) "running")))
     ("r" "Resource Usage" ec2/resource-usage
      :if (lambda ()
-        (equal (string-trim (ec2/get-col (point) 2)) "running")))]
+           (equal (string-trim (ec2/get-col (point) 2)) "running")))
+    ("m" "Make AMI" ec2/make-ami
+     :if (lambda ()
+           (equal (string-trim (ec2/get-col (point) 2)) "running")))]
    ["Quit"
     ("q" "Quit" ec2/transient-quit)]])
 
