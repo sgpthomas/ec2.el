@@ -65,45 +65,59 @@
       (insert "\n"))))
 
 (defvar ec2/images--table
-  (ec2/table--create :name "Images"
-                     :cmd '("describe-images" "--owner" "self")
-                     :query "Images[*].[Name, ImageId, State, Description]"
-                     :columns '("Name" "Id" "State" "Description")
-                     :render? t)
+  (ec2/table--create
+   :name "Images"
+   :cmd '("describe-images" "--owner" "self")
+   :query "Images[*].[Name, ImageId, State, Description]"
+   :columns '("Name" "Id" "State" "Description")
+   :render? t)
   "Table that stores images")
 
 (defvar ec2/instance--table
-  (ec2/table--create :name "Instances"
-                     :cmd '("describe-instances")
-                     :query "Reservations[*].Instances[].[InstanceType, InstanceId, State.Name, PublicIpAddress]"
-                     :columns '("Type" "Id" "State" "Ip Address")
-                     :render? t))
+  (ec2/table--create
+   :name "Instances"
+   :cmd '("describe-instances")
+   :query "Reservations[*].Instances[].[InstanceType, InstanceId, State.Name, PublicIpAddress]"
+   :columns '("Type" "Id" "State" "Ip Address")
+   :render? t))
 
 (defvar ec2/security-groups--table
-  (ec2/table--create :name "Security Groups"
-                     :cmd '("describe-security-groups")
-                     :query "SecurityGroups[*].[GroupName, GroupId]"
-                     :render? nil
-                     :columns '("Name" "Id")))
+  (ec2/table--create
+   :name "Security Groups"
+   :cmd '("describe-security-groups")
+   :query "SecurityGroups[*].[GroupName, GroupId]"
+   :render? nil
+   :columns '("Name" "Id")))
 
 (defvar ec2/key-pairs--table
-  (ec2/table--create :name "Key Pairs"
-                     :cmd '("describe-key-pairs")
-                     :query "KeyPairs[*].KeyName"
-                     :render? nil))
+  (ec2/table--create
+   :name "Key Pairs"
+   :cmd '("describe-key-pairs")
+   :query "KeyPairs[*].KeyName"
+   :render? nil))
 
 (defvar ec2/instance-types--table
-  (ec2/table--create :name "Instance Types"
-                     :cmd '("describe-instance-types")
-                     :query "InstanceTypes[*].[InstanceType, VCpuInfo.DefaultVCpus, MemoryInfo.SizeInMiB]"
-                     :render? nil))
+  (ec2/table--create
+   :name "Instance Types"
+   :cmd '("describe-instance-types")
+   :query "InstanceTypes[*].[InstanceType, VCpuInfo.DefaultVCpus, MemoryInfo.SizeInMiB]"
+   :render? nil))
+
+(defvar ec2/addresses--table
+  (ec2/table--create
+   :name "Addresses"
+   :cmd '("describe-addresses")
+   :query "Addresses[*].[InstanceId, PublicIp, NetworkBorderGroup]"
+   :columns '("Id" "Ip" "Region")
+   :render? nil))
 
 (defvar ec2/tables
   (list 'ec2/images--table
         'ec2/instance--table
         'ec2/security-groups--table
         'ec2/key-pairs--table
-        'ec2/instance-types--table))
+        'ec2/instance-types--table
+	'ec2/addresses--table))
 
 (defvar ec2/sync-history
   '())
@@ -142,6 +156,18 @@
   (interactive
    (list (transient-args 'ec2/instances-transient)))
   (let* ((cmd (list "ec2" "terminate-instances" "--instance-id" (ec2/get-col (point) 1))))
+    (deferred:$
+      (deferred:next
+        (lambda () (ec2/run-cmd-async cmd)))
+      (deferred:nextc it
+        (lambda (_) (ec2/render))))))
+
+(defun ec2/associate-ip (&optional args)
+  (interactive
+   (list (transient-args 'ec2/assign-ip-address)))
+  (let* ((cmd (list "ec2" "associate-address"
+		    "--instance-id" (ec2/get-col (point) 1)))
+         (cmd (append cmd args)))
     (deferred:$
       (deferred:next
         (lambda () (ec2/run-cmd-async cmd)))
@@ -312,25 +338,53 @@
   [:description (lambda () (let ((p (point)))
                         (format "Managing instance: %s"
                                 (ec2/get-col p 1))))
-   ["Actions"
-    ("t" "Terminate" ec2/terminate)
-    ("e" "Eshell" ec2/ssh-into-instance
-     :if (lambda ()
-           (equal (string-trim (ec2/get-col (point) 2)) "running")))
-    ("a" "Ansi-term" ec2/ssh-ansi-term
-     :if (lambda ()
-           (equal (string-trim (ec2/get-col (point) 2)) "running")))
-    ("s" "Tmux Session" ec2/tmux-session
-     :if (lambda ()
-           (equal (string-trim (ec2/get-col (point) 2)) "running")))
-    ("r" "Resource Usage" ec2/resource-usage
-     :if (lambda ()
-           (equal (string-trim (ec2/get-col (point) 2)) "running")))
-    ("m" "Make AMI" ec2/make-ami
-     :if (lambda ()
-           (equal (string-trim (ec2/get-col (point) 2)) "running")))]
-   ["Quit"
-    ("q" "Quit" ec2/transient-quit)]])
+		["Actions"
+		 ("t" "Terminate" ec2/terminate)
+		 ("m" "Make AMI" ec2/make-ami
+		  :if (lambda ()
+			(equal (string-trim (ec2/get-col (point) 2)) "running")))
+		 ("i" "Assign IP Address" ec2/assign-ip-address
+		  :if (lambda ()
+			(equal (string-trim (ec2/get-col (point) 2)) "running")))]
+		["Interact"
+		 ("e" "Eshell" ec2/ssh-into-instance
+		  :if (lambda ()
+			(equal (string-trim (ec2/get-col (point) 2)) "running")))
+		 ("a" "Ansi-term" ec2/ssh-ansi-term
+		  :if (lambda ()
+			(equal (string-trim (ec2/get-col (point) 2)) "running")))
+		 ("s" "Tmux Session" ec2/tmux-session
+		  :if (lambda ()
+			(equal (string-trim (ec2/get-col (point) 2)) "running")))
+		 ("r" "Resource Usage" ec2/resource-usage
+		  :if (lambda ()
+			(equal (string-trim (ec2/get-col (point) 2)) "running")))
+		 ]
+		["Quit"
+		 ("q" "Quit" ec2/transient-quit)]])
+
+(defclass ec2/table-option--address (transient-option)
+  ((ignored :initarg :ignored)))
+
+(transient-define-infix ec2/assign-ip-address:--address ()
+  :class 'ec2/table-option--address
+  :description "Elastic IPs"
+  :key "p"
+  :argument "--public-ip="
+  :init-value (-cut ec2/transient-init-from-history 'ec2/assign-ip-address:--address <>)
+  :prompt "Elastic Ip: "
+  :choices 'ec2/get-addresses
+  :always-read t)
+
+(transient-define-prefix ec2/assign-ip-address ()
+  "Assign IP Address to an Instance"
+  [:description (lambda () (let ((p (point)))
+			(format "Managing instance: %s" (ec2/get-col p 1))))
+		["ElasticIP"
+		 (ec2/assign-ip-address:--address)]
+		["Action"
+		 ("a" "Assign" ec2/associate-ip)
+		 ("q" "Quit" ec2/transient-quit)]])
 
 (defun ec2/transient ()
   (interactive)
@@ -363,6 +417,9 @@
                  (nth 1 it)
                  (/ (nth 2 it) 1024.0))
          (ec2/table-data ec2/instance-types--table)))
+
+(defun ec2/get-addresses (a b c)
+  (--map (nth 1 it) (ec2/table-data ec2/addresses--table)))
 
 (defun ec2/refresh-data ()
   "Refresh EC2 data"
