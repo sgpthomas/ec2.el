@@ -173,8 +173,11 @@
          (ssh-addr (s-trim (nth 3 row)))
          (ssh-cmd (format "ssh ubuntu@%s\n" ssh-addr))
          (ansi-term-buffer-name (format "ansi-term:%s" ssh-addr)))
-    (ansi-term "/bin/zsh" ansi-term-buffer-name)
-    (comint-send-string (concat "*" ansi-term-buffer-name "*") ssh-cmd)))
+    (if (get-buffer (concat "*" ansi-term-buffer-name "*"))
+	(switch-to-buffer (concat "*" ansi-term-buffer-name "*"))
+      (progn
+	(ansi-term "/bin/zsh" ansi-term-buffer-name)
+	(comint-send-string (concat "*" ansi-term-buffer-name "*") ssh-cmd)))))
 
 (defun ec2/tmux-session (&optional pt)
   (interactive "d")
