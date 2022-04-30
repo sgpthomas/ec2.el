@@ -410,7 +410,7 @@
   "Opens the AWS information dashboard."
   (interactive)
   (let ((buf (get-buffer-create "*aws*")))
-    (switch-to-buffer-other-window buf)
+    (switch-to-buffer buf)
     (setq-local buffer-read-only 'nil)
     ;; clear buffer. probably don't need to do this ultimately
     (with-current-buffer buf
