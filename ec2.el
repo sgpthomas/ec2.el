@@ -1,11 +1,13 @@
 ;;; ec2.el --- A tool for managing Amazon EC2 Instances -*- lexical-binding: t; -*-
 
-;; Copyright (C) 2021 Samuel Thomas
+;; Copyright (C) 2022 Samuel Thomas
 
 ;; Author: Samuel Thomas <sgt@cs.utexas.edu>
 ;; Package-Requires: (dash transient deferred json evil tmux)
 
 ;;; Code:
+
+;;; External packages:
 (require 'json)
 (require 'deferred)
 (require 'transient)
@@ -13,6 +15,12 @@
 (require 'evil)
 (require 'tmux)
 
+;;; Internal packages
+(require 'ec2-cli)
+(require 'ec2-table)
+(require 'ec2-render)
+
+;; Face definitions:
 (defgroup ec2/faces nil
   "Faces used by aws mode.")
 
@@ -29,41 +37,7 @@
   "Face for column headings"
   :group 'ec2/faces)
 
-(cl-defstruct (ec2/table (:constructor ec2/table--create)
-                         (:copier nil))
-  "Structure for storing information about tables"
-  (name :read-only t)
-  data
-  (cmd :read-only t)
-  (query :read-only t)
-  (columns :read-only t)
-  render?)
-
-(defun ec2/update-table (table)
-  "Use AWS Cli to update table data"
-  (let ((table table))
-   (deferred:$
-    (deferred:next
-      `(lambda ()
-         (ec2/run-cmd-async
-          `("ec2" ,@(ec2/table-cmd ,table) "--query" ,(ec2/table-query ,table)))))
-    (deferred:nextc it
-      `(lambda (data)
-         (setf (ec2/table-data ,table) data))))))
-
-(defun ec2/render-table (table)
-  (let* ((table (symbol-value table))
-         (name (ec2/table-name table))
-         (data (ec2/table-data table))
-         (cols (ec2/table-columns table))
-         (render? (ec2/table-render? table)))
-    (when render?
-      (insert (propertize name
-                          'font-lock-face 'ec2/face-table-heading))
-      (insert "\n")
-      (insert (ec2/info-section name data cols))
-      (insert "\n"))))
-
+;; Table definitions:
 (defvar ec2/images--table
   (ec2/table--create
    :name "Images"
@@ -120,26 +94,8 @@
 	'ec2/addresses--table))
 
 (defvar ec2/sync-history
-  '())
-
-(defun ec2/run-cmd-async (cmd)
-  (let ((c cmd))
-    (deferred:$
-      (deferred:next
-        `(lambda ()
-           (deferred:process "aws" ,@c "--no-cli-pager")))
-      (deferred:nextc it
-        (lambda (json-string)
-          (json-read-from-string json-string)))
-      (deferred:nextc it
-        (lambda (x) (ec2/arrays-to-lists x))))))
-
-(defun ec2/arrays-to-lists (elem)
-  (if (vectorp elem)
-      (-map 'ec2/arrays-to-lists elem)
-    (if (or (equal elem nil) (equal elem ""))
-        "<none>"
-      elem)))
+  '()
+  "Variable to store history.")
 
 (defun ec2/launch (&optional args)
   (interactive
