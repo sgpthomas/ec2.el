@@ -4,6 +4,7 @@
 
 ;;; Code:
 
+;;;###autoload
 (cl-defstruct (ec2/table (:constructor ec2/table--create)
                          (:copier nil))
   "Table structure for storing the results of a command and information about how to display it."

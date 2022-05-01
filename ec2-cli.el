@@ -1,5 +1,10 @@
-;;; -*- lexical-binding: t; -*- ;;;
+;;; ec2-ecli.el -*- lexical-binding: t; -*-
 
+;; Copyright (C) 2022 Samuel Thomas
+
+;;; Code:
+
+;;;###autoload
 (defun ec2/run-cmd-async (cmd)
   "Run ec2 `cmd', and parse the resulting json."
 
