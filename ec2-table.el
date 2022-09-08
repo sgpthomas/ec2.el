@@ -3,6 +3,7 @@
 ;; Copyright (C) 2022 Samuel Thomas
 
 ;;; Code:
+(require 'deferred)
 
 ;;;###autoload
 (cl-defstruct (ec2/table (:constructor ec2/table--create)

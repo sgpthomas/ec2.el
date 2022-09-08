@@ -3,8 +3,10 @@
 ;; Copyright (C) 2022 Samuel Thomas
 
 ;;; Code:
+(require 'deferred)
+(require 'dash)
+(require 'json)
 
-;;;###autoload
 (defun ec2/run-cmd-async (cmd)
   "Run ec2 `cmd', and parse the resulting json."
 
@@ -15,6 +17,7 @@
            (deferred:process "aws" ,@c "--no-cli-pager")))
       (deferred:nextc it
         (lambda (json-string)
+	  (message "Hi")
           (json-read-from-string json-string)))
       (deferred:nextc it
         (lambda (x) (ec2/arrays-to-lists x))))))

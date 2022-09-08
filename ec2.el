@@ -8,19 +8,9 @@
 ;;; Code:
 
 ;;; External packages:
-(require 'json)
 (require 'deferred)
-(require 'transient)
 (require 'dash)
 (require 'evil)
-(require 'tmux)
-
-;;; Internal packages
-(load-file "ec2-cli.el")
-(load-file "ec2-table.el")
-(load-file "ec2-render.el")
-(load-file "ec2-transient-ami.el")
-(load-file "ec2-transient-launch.el")
 
 (require 'ec2-cli)
 (require 'ec2-table)

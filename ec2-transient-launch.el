@@ -3,6 +3,10 @@
 ;; Copyright (C) 2022 Samuel Thomas
 
 ;;; Code:
+(require 'dash)
+(require 'deferred)
+(require 'transient)
+(require 'tmux)
 
 (defun ec2/launch (&optional args)
   (interactive

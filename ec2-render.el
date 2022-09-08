@@ -3,6 +3,7 @@
 ;; Copyright (C) 2022 Samuel Thomas
 
 ;;; Code:
+(require 'dash)
 
 ;;;###autoload
 (defun ec2/render ()

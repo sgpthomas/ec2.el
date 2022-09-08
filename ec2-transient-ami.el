@@ -3,6 +3,8 @@
 ;; Copyright (C) 2022 Samuel Thomas
 
 ;;; Code:
+(require 'transient)
+(require 'dash)
 
 (defun ec2/transient-init-from-history (name obj &optional default)
   "Set the default value to most recent item from history."
