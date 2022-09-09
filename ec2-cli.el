@@ -17,7 +17,6 @@
            (deferred:process "aws" ,@c "--no-cli-pager")))
       (deferred:nextc it
         (lambda (json-string)
-	  (message "Hi")
           (json-read-from-string json-string)))
       (deferred:nextc it
         (lambda (x) (ec2/arrays-to-lists x))))))
