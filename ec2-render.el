@@ -65,7 +65,6 @@
 (defun ec2/--make-row (table-id row)
   (let* ((row-text (string-join row "|"))
          (compl (format "%s" row-text)))
-    (message "%s" table-id)
     (propertize compl
                 'ec2/table-id table-id
                 'ec2/table-row row)))
