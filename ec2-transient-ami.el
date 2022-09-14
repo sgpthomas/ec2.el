@@ -99,7 +99,7 @@
 (transient-define-prefix ec2/launch-from-ami ()
   "Launch EC2 Instance from AMI: %s"
   [:description (lambda () (let ((p (point)))
-                        (format "Launching instance from: %s" (ec2/get-col p 1))))
+                        (format "Launching instance from: %s" (ec2/get-col p "Id"))))
                 ["Arguments"
                  (ec2/launch-from-ami:--security-group-ids)
                  (ec2/launch-from-ami:--count)

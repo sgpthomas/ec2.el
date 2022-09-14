@@ -49,8 +49,8 @@
   (ec2/table--create
    :name "Instances"
    :cmd '("describe-instances")
-   :query "Reservations[*].Instances[].[InstanceType, InstanceId, State.Name, PublicIpAddress]"
-   :columns '("Type" "Id" "State" "Ip Address")
+   :query "Reservations[*].Instances[].[Tags[?Key == `Name`].Value | [0], InstanceType, InstanceId, State.Name, PublicIpAddress]"
+   :columns '("Name" "Type" "Id" "State" "Ip Address")
    :render? t))
 
 (defvar ec2/security-groups--table
@@ -115,12 +115,6 @@
          (row-data (get-text-property (point) 'ec2/table-row))
          (image-id (nth 1 row-data)))
     (message "%s %s" row-data image-id)))
-
-(defun ec2/get-col (pt num)
-  (let ((row (get-text-property (point) 'ec2/table-row)))
-    (nth num row)))
-
-
 
 ;; ===== Major Mode ===== ;;
 (defvar ec2-mode-map

@@ -4,6 +4,7 @@
 
 ;;; Code:
 (require 'deferred)
+(require 's)
 
 ;;;###autoload
 (cl-defstruct (ec2/table (:constructor ec2/table--create)
@@ -29,6 +30,25 @@
      (deferred:nextc it
 		     `(lambda (data)
 			(setf (ec2/table-data ,table) data))))))
+
+(defun ec2/get-table-by-id (table-id)
+  "Return the table that has `table-id'."
+
+  (eval
+   (--find (equal table-id (ec2/table-name (eval it)))
+	   ec2/tables)))
+
+(defun ec2/get-col (pt col-name)
+  "Get the value of a column of the table at point."
+
+  (let* ((row (get-text-property (point) 'ec2/table-row))
+	 (table-id (get-text-property (point) 'ec2/table-id))
+	 (table (ec2/get-table-by-id table-id))
+	 (header (ec2/table-columns table))
+	 (index (--find-index (string-equal col-name it) header)))
+    (if index
+	(s-trim (nth index row))
+      (error "Column `%s' not found in `%s'" col-name header))))
 
 (provide 'ec2-table)
 
