@@ -3,7 +3,7 @@
 ;; Copyright (C) 2022 Samuel Thomas
 
 ;; Author: Samuel Thomas <sgt@cs.utexas.edu>
-;; Package-Requires: (dash transient deferred json evil tmux)
+;; Package-Requires: (dash transient deferred json evil tmux f)
 
 ;;; Code:
 
