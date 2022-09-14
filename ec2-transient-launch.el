@@ -126,7 +126,7 @@
 		 (ec2/assign-ip-address:--address)]
 		["Action"
 		 ("a" "Assign" ec2/associate-ip)
-		 ("q" "Quit" ec2/transient-quit)]])
+		 ("q" "Quit" transient-quit-one)]])
 
 (defun ec2/make-ami (&optional args)
   (interactive
