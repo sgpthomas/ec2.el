@@ -93,8 +93,9 @@
 (defun ec2/name-instance (&optional pt)
   (interactive "d")
   (let* ((instance-id (ec2/get-col pt "Id"))
+	 (name (read-string "Name: "))
 	 (cmd (list "ec2" "create-tags" "--resources" instance-id
-		    "--tags" (format "Key=Name,Value=%s" "blah"))))
+		    "--tags" (format "Key=Name,Value=%s" name))))
     (deferred:$
      (deferred:next
       (lambda () (ec2/run-cmd-async cmd)))

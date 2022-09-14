@@ -17,6 +17,7 @@
 (require 'ec2-render)
 (require 'ec2-transient-ami)
 (require 'ec2-transient-launch)
+(require 'ec2-api)
 
 ;; Face definitions:
 (defgroup ec2/faces nil
