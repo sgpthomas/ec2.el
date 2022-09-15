@@ -23,4 +23,6 @@
     (concat (format "/ssh:ubuntu@%s:" ip)
 	    "~" "/" (s-join "/" path) "/")))
 
+(provide 'ec2-api)
+
 ;;; ec2-api.el ends here
