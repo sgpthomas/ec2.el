@@ -4,6 +4,7 @@
 
 ;;; Code:
 (require 'deferred)
+(require 'dash)
 (require 's)
 
 ;;;###autoload

@@ -3,6 +3,8 @@
 ;; Copyright (C) 2022 Samuel Thomas
 
 ;;; Code:
+(require 'ec2-table)
+
 (require 'transient)
 (require 'dash)
 
