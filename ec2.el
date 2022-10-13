@@ -59,7 +59,7 @@
    :name "Security Groups"
    :cmd '("describe-security-groups")
    :query "SecurityGroups[*].[GroupName, GroupId]"
-   :render? nil
+   :render? t
    :columns '("Name" "Id")))
 
 (defvar ec2/key-pairs--table
@@ -76,6 +76,14 @@
    :query "InstanceTypes[*].[InstanceType, VCpuInfo.DefaultVCpus, MemoryInfo.SizeInMiB]"
    :render? nil))
 
+(defvar ec2/regions--table
+  (ec2/table--create
+   :name "Regions"
+   :cmd '("describe-regions")
+   :query "Regions[*].[RegionName]"
+   :render? nil
+   :columns '("Name")))
+
 (defvar ec2/addresses--table
   (ec2/table--create
    :name "Addresses"
@@ -90,6 +98,7 @@
         'ec2/security-groups--table
         'ec2/key-pairs--table
         'ec2/instance-types--table
+        'ec2/regions--table
 	'ec2/addresses--table))
 
 (defvar ec2/sync-history
@@ -116,6 +125,14 @@
          (row-data (get-text-property (point) 'ec2/table-row))
          (image-id (nth 1 row-data)))
     (message "%s %s" row-data image-id)))
+
+
+(defun ec2/get-region (_ _ _)
+  (--map (format "%s" (nth 0 it))
+         (ec2/table-data ec2/regions--table)))
+
+(defun ec2/change-region ()
+  )
 
 ;; ===== Major Mode ===== ;;
 (defvar ec2-mode-map
