@@ -58,7 +58,8 @@
 (defun ec2/ssh-ansi-term (&optional pt)
   (interactive "d")
   (let* ((ssh-addr (ec2/get-col pt "Ip Address"))
-         (ssh-cmd (format "ssh ubuntu@%s\n" ssh-addr))
+         (ssh-cmd
+	  (format "ssh -o StrictHostKeyChecking=no ubuntu@%s\n" ssh-addr))
          (ansi-term-buffer-name (format "ansi-term:%s" ssh-addr)))
     (if (get-buffer (concat "*" ansi-term-buffer-name "*"))
 	(switch-to-buffer (concat "*" ansi-term-buffer-name "*"))
@@ -87,7 +88,7 @@
   (interactive "d")
   (let* ((ssh-addr (ec2/get-col pt "Ip Address"))
          (res (shell-command-to-string
-               (format "ssh ubuntu@%s free -gh" ssh-addr))))
+               (format "ssh -o StrictHostKeyChecking=no ubuntu@%s free -gh" ssh-addr))))
     (message "%s" res)))
 
 (defun ec2/name-instance (&optional pt)
