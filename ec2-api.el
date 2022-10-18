@@ -21,7 +21,8 @@
 (defun ec2/tramp (name &rest path)
   (let* ((ip (ec2/get-ip name)))
     (concat (format "/ssh:ubuntu@%s:" ip)
-	    "~" "/" (s-join "/" path))))
+	    (s-join "/" path))))
+
 
 (provide 'ec2-api)
 
