@@ -54,12 +54,20 @@
    :columns '("Name" "Type" "Id" "State" "Ip Address")
    :render? t))
 
+(defvar ec2/instance-status--table
+  (ec2/table--create
+   :name "Instance Statuses"
+   :cmd '("describe-instance-status")
+   :query "InstanceStatuses[*].[InstanceId,InstanceStatus.Status, SystemStatus.Status]"
+   :columns '("Id" "Instance" "System")
+   :render? t))
+
 (defvar ec2/security-groups--table
   (ec2/table--create
    :name "Security Groups"
    :cmd '("describe-security-groups")
    :query "SecurityGroups[*].[GroupName, GroupId]"
-   :render? t
+   :render? nil
    :columns '("Name" "Id")))
 
 (defvar ec2/key-pairs--table
@@ -95,6 +103,7 @@
 (defvar ec2/tables
   (list 'ec2/images--table
         'ec2/instance--table
+        'ec2/instance-status--table
         'ec2/security-groups--table
         'ec2/key-pairs--table
         'ec2/instance-types--table
