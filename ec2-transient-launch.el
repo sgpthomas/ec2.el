@@ -55,6 +55,13 @@
                        (buffer-list)))))
     (eshell n-esh-bufs)))
 
+(defun ec2/open-dired (&optional pt)
+  (interactive "d")
+  (let* ((ssh-addr (ec2/get-col pt "Ip Address"))
+         (target-directory (format "/ssh:ubuntu@%s:~" ssh-addr))
+         (tramp-connection-timeout 10))
+    (dired target-directory)))
+
 (defun ec2/ssh-ansi-term (&optional pt)
   (interactive "d")
   (let* ((ssh-addr (ec2/get-col pt "Ip Address"))
@@ -163,6 +170,8 @@
 		  :if (lambda () (ec2/--instance-state-is? "running")))]
 		["Interact"
 		 ("e" "Eshell" ec2/ssh-into-instance
+		  :if (lambda () (ec2/--instance-state-is? "running")))
+                 ("d" "Dired" ec2/open-dired
 		  :if (lambda () (ec2/--instance-state-is? "running")))
 		 ("a" "Ansi-term" ec2/ssh-ansi-term
 		  :if (lambda () (ec2/--instance-state-is? "running")))
