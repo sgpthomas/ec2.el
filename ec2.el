@@ -52,7 +52,7 @@
    :cmd '("describe-instances")
    :query "Reservations[*].Instances[].[Tags[?Key == `Name`].Value | [0], InstanceType, InstanceId, State.Name, PublicIpAddress]"
    :columns '("Name" "Type" "Id" "State" "Ip Address")
-   :render? t))
+   :render? nil))
 
 (defvar ec2/instance-status--table
   (ec2/table--create
@@ -60,6 +60,16 @@
    :cmd '("describe-instance-status")
    :query "InstanceStatuses[*].[InstanceId,InstanceStatus.Status, SystemStatus.Status]"
    :columns '("Id" "Instance" "System")
+   :render? nil))
+
+(defvar ec2/instance-view--table
+  (ec2/table--create
+   :name "Instance"
+   :data (ec2/join-table ec2/instance--table ec2/instance-status--table)
+   :cmd 'nil
+   :query 'nil
+   :columns (-union (ec2/table-columns ec2/instance--table)
+                    (ec2/table-columns ec2/instance-status--table))
    :render? t))
 
 (defvar ec2/security-groups--table
@@ -102,8 +112,7 @@
 
 (defvar ec2/tables
   (list 'ec2/images--table
-        'ec2/instance--table
-        'ec2/instance-status--table
+        'ec2/instance-view--table
         'ec2/security-groups--table
         'ec2/key-pairs--table
         'ec2/instance-types--table
