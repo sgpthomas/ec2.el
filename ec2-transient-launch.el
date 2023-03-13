@@ -10,17 +10,6 @@
 
 (require 'ec2-table)
 
-(defun ec2/launch (&optional args)
-  (interactive
-   (list (transient-args 'ec2/launch-from-ami)))
-  (let* ((cmd (list "ec2" "run-instances" "--image-id" (ec2/get-col (point) "Id")))
-         (cmd (append cmd args)))
-    (deferred:$
-      (deferred:next
-        (lambda () (ec2/run-cmd-async cmd)))
-      (deferred:nextc it
-        (lambda (_) (ec2/render))))))
-
 (defun ec2/terminate (&optional args)
   (interactive
    (list (transient-args 'ec2/instances-transient)))

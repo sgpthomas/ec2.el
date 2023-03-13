@@ -20,8 +20,15 @@
 
 ;; ============== security groups ==============
 
-(defun ec2/get-security-groups (a b c)
-  (--map (nth 0 it) (ec2/table-data ec2/security-groups--table)))
+(defun ec2/security-groups--reader (_input _pred _tag)
+  (let ((completion-extra-properties
+         '(:annotation-function
+           (lambda (i)
+             (let ((row (car (--filter (equal i (nth 0 it)) (ec2/table-data ec2/security-groups--table)))))
+               (format " -- %s" (nth 1 row)))))))
+    (completing-read
+     "SG: "
+     (ec2/table-data ec2/security-groups--table))))
 
 (defclass ec2/table-option--security-group (transient-option)
   ((ignored :initarg :ignored)))
@@ -39,8 +46,7 @@
   :argument "--security-group-ids="
   :init-value (-cut ec2/transient-init-from-history
                     'ec2/launch-from-ami:--security-group-ids <>)
-  :prompt "Security Group: "
-  :choices 'ec2/get-security-groups
+  :reader #'ec2/security-groups--reader
   :always-read t)
 
 ;; ============== launch count ==============
@@ -57,30 +63,25 @@
 
 ;; ============== instance types ==============
 
-(defun ec2/get-instance-types (_ _ _)
-  (--map (format "%s\t%s cores\t %s GiB ram"
-                 (nth 0 it)
-                 (nth 1 it)
-                 (/ (nth 2 it) 1024.0))
-         (ec2/table-data ec2/instance-types--table)))
-
-(defclass ec2/table-option--instance-types (transient-option)
-  ((ignored :initarg :ignored)))
-
-(cl-defmethod transient-infix-set ((obj ec2/table-option--instance-types) value)
-  "Look up value in table"
-  (let* ((sp (split-string value "\t"))
-         (name (car sp)))
-    (oset obj value name)))
+(defun ec2/instance-type--reader (_input _pred tag)
+  (let ((completion-extra-properties
+         '(:annotation-function
+           (lambda (i)
+             (let ((row (car (--filter (equal i (nth 0 it)) (ec2/table-data ec2/instance-types--table)))))
+               (format " -- %s cores, %s GiB ram" (nth 1 row) (/ (nth 2 row) 1024.0)))))))
+    (completing-read
+     "Type: "
+     (ec2/table-data ec2/instance-types--table)
+     nil
+     t)))
 
 (transient-define-infix ec2/launch-from-ami:--instance-type ()
-  :class 'ec2/table-option--instance-types
+  :class 'transient-option
   :description "Type of instances to launch"
   :key "t"
   :argument "--instance-type="
   :init-value (-cut ec2/transient-init-from-history 'ec2/launch-from-ami:--instance-type <>)
-  :prompt "Type: "
-  :choices 'ec2/get-instance-types
+  :reader #'ec2/instance-type--reader
   :always-read t)
 
 ;; ============== key pairs ==============
@@ -96,6 +97,27 @@
   :always-read t
   :choices (lambda (_ _ _) (ec2/table-data ec2/key-pairs--table)))
 
+(defun ec2/launch (&optional args)
+  (interactive
+   (list (transient-args 'ec2/launch-from-ami)))
+  (let* ((cmd (list "ec2" "run-instances" "--image-id" (ec2/get-col (point) "Id")))
+         (cmd (append cmd args)))
+    (deferred:$
+      (deferred:next
+        (lambda () (ec2/run-cmd-async cmd)))
+      (deferred:nextc it
+        (lambda (_) (ec2/render))))))
+
+(defun ec2/deregister-ami (&optional args)
+  (interactive
+   (list (transient-args 'ec2/launch-from-ami)))
+  (let* ((cmd (list "ec2" "deregister-image" "--image-id" (ec2/get-col (point) "Id")))
+         (cmd (append cmd args)))
+    (deferred:$
+     (deferred:next
+      (lambda () (ec2/run-cmd-async cmd)))
+     (deferred:nextc it
+                     (lambda (_) (ec2/render))))))
 
 ;;;###autoload
 (transient-define-prefix ec2/launch-from-ami ()
@@ -108,7 +130,9 @@
                  (ec2/launch-from-ami:--instance-type)
                  (ec2/launch-from-ami:--key-pairs)]
                 ["Launch"
-                 ("l" "Launch" ec2/launch)
+                 ("l" "Launch" ec2/launch)]
+                ["Actions"
+                 ("d" "Deregister" ec2/deregister-ami)
                  ("q" "Quit" transient-quit-one)]])
 
 
