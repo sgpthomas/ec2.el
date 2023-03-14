@@ -24,10 +24,14 @@
   (let ((completion-extra-properties
          '(:annotation-function
            (lambda (i)
-             (let ((row (car (--filter (equal i (nth 0 it)) (ec2/table-data ec2/security-groups--table)))))
-               (format " -- %s" (nth 1 row)))))))
+             (let ((row (car (--filter
+                              (equal i (nth 0 it))
+                              (ec2/table-data ec2/security-groups--table)))))
+               (concat (s-repeat (- 15 (length i)) " ")
+                       (propertize (nth 1 row)
+                                   'face 'font-lock-doc-face)))))))
     (completing-read
-     "SG: "
+     "Security Group: "
      (ec2/table-data ec2/security-groups--table))))
 
 (defclass ec2/table-option--security-group (transient-option)
@@ -63,12 +67,20 @@
 
 ;; ============== instance types ==============
 
-(defun ec2/instance-type--reader (_input _pred tag)
+(defun ec2/instance-type--reader (_arg _pred _hist)
   (let ((completion-extra-properties
          '(:annotation-function
            (lambda (i)
-             (let ((row (car (--filter (equal i (nth 0 it)) (ec2/table-data ec2/instance-types--table)))))
-               (format " -- %s cores, %s GiB ram" (nth 1 row) (/ (nth 2 row) 1024.0)))))))
+             (let ((row (car (--filter
+                              (equal i (nth 0 it))
+                              (ec2/table-data ec2/instance-types--table)))))
+               (concat (s-repeat (- 15 (length i)) " ")
+                       (propertize (format "%s cores" (nth 1 row))
+                                   'face 'font-lock-type-face)
+                       (propertize "\t" 'display 'space)
+                       (propertize (format "%s GiB ram" (/ (nth 2 row) 1024.0))
+                                   'face 'font-lock-doc-face))
+               )))))
     (completing-read
      "Type: "
      (ec2/table-data ec2/instance-types--table)
