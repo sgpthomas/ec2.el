@@ -189,13 +189,12 @@
   (interactive)
 
   (deferred:$
-    ;; update all tables in parallel
-    (deferred:parallel
-      (-map 'ec2/update-table ec2/tables))
-    ;; once everything is updated, render
-    (deferred:nextc it
-      (lambda (_)
-        (ec2/render)))))
+   (deferred:next (lambda (_) (ec2/render t)))
+   ;; update all tables in parallel
+   (deferred:parallel
+    (-map 'ec2/update-table ec2/tables))
+   ;; once everything is updated, render
+   (deferred:nextc it (lambda (_) (ec2/render)))))
 
 (provide 'ec2)
 

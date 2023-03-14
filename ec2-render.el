@@ -6,7 +6,7 @@
 (require 'dash)
 
 ;;;###autoload
-(defun ec2/render ()
+(defun ec2/render (&optional in-progress)
   "Render the ec2 buffer"
   (interactive)
 
@@ -20,7 +20,9 @@
       ;; render each table
       (-each ec2/tables 'ec2/render-table)
       ;; insert last updated string
-      (ec2/render-timestamp)
+      (if in-progress
+          (ec2/render-updating)
+        (ec2/render-timestamp))
       ;; go back to where we were
       (goto-char p))
     
@@ -44,11 +46,17 @@
       (insert (ec2/info-section name data cols))
       (insert "\n"))))
 
+(defun ec2/render-updating ()
+  "Renders a timestamp."
+
+  (insert (propertize "Updating..."
+                      'font-lock-face '(italic shadow))))
+
 (defun ec2/render-timestamp ()
   "Renders a timestamp."
 
-  (insert (propertize "Last Updated: " 'font-lock-face 'italic))
-  (insert (propertize (current-time-string) 'font-lock-face 'italic)))
+  (insert (propertize (format "Last Updated: %s" (current-time-string))
+                      'font-lock-face '(italic shadow))))
 
 (defun ec2/info-section (table-id data columns)
   "Returns the input data using `column-model' rendered as a table."
