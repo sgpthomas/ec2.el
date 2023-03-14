@@ -36,13 +36,34 @@
   "Face for column headings"
   :group 'ec2/faces)
 
+
+(defun list-lift-n (n fn lst)
+  "Helper function that applies `fn' to the `n' element
+   in list and returns the resulting list"
+
+  (--map-indexed
+   (if (equal it-index n)
+       (funcall fn it)
+     it)
+   lst))
+
 ;; Table definitions:
 (defvar ec2/images--table
   (ec2/table--create
    :name "Images"
    :cmd '("describe-images" "--owner" "self")
-   :query "Images[*].[Name, ImageId, State, Description]"
-   :columns '("Name" "Id" "State" "Description")
+   :query "Images[*].[Name, ImageId, State, Description, CreationDate]"
+   :columns '("Name" "Id" "State" "Description" "Date")
+   ;; :sort-by "Date"
+   :post-fn (lambda (data)
+              (--> data
+                   (--map (list-lift-n 4 #'parse-time-string it) it)
+                   (--map (list-lift-n 4 #'encode-time it) it)
+                   (sort it (lambda (a b)
+                              (time-less-p
+                               (nth 4 a)
+                               (nth 4 b))))
+                   (--map (list-lift-n 4 (lambda (x) (format-time-string "%D" x)) it) it)))
    :render? t)
   "Table that stores images")
 
@@ -66,8 +87,6 @@
   (ec2/table--create
    :name "Instance"
    :data (ec2/join-table ec2/instance--table ec2/instance-status--table)
-   :cmd 'nil
-   :query 'nil
    :columns (-union (ec2/table-columns ec2/instance--table)
                     (ec2/table-columns ec2/instance-status--table))
    :render? t))
@@ -112,6 +131,8 @@
 
 (defvar ec2/tables
   (list 'ec2/images--table
+        'ec2/instance--table
+        'ec2/instance-status--table
         'ec2/instance-view--table
         'ec2/security-groups--table
         'ec2/key-pairs--table
@@ -166,8 +187,8 @@
   "Mode for the AWS Dashboard."
   (buffer-disable-undo)
   (evil-make-overriding-map ec2-mode-map 'normal)
-  (setq-local revert-buffer-function
-	      'ec2/refresh-data))
+  (setq-local revert-buffer-function 'ec2/refresh-data
+              truncate-lines t))
 
 (defun ec2/dashboard ()
   "Opens the AWS information dashboard."

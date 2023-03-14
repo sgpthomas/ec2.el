@@ -12,11 +12,12 @@
                          (:copier nil))
   "Table structure for storing the results of a command and information about how to display it."
 
-  (name :read-only t)
+  (name nil :read-only t)
   data
-  (cmd :read-only t)
-  (query :read-only t)
-  (columns :read-only t)
+  (cmd nil :read-only t)
+  (query nil :read-only t)
+  (columns nil :read-only t)
+  (post-fn nil :read-only t)
   render?)
 
 (defun ec2/update-table (table)
@@ -30,7 +31,10 @@
           `("ec2" ,@(ec2/table-cmd ,table) "--query" ,(ec2/table-query ,table)))))
      (deferred:nextc it
 		     `(lambda (data)
-			(setf (ec2/table-data ,table) data))))))
+			(setf (ec2/table-data ,table)
+                              (if (functionp (ec2/table-post-fn ,table))
+                                  (funcall (ec2/table-post-fn ,table) data)
+                                data)))))))
 
 (defun ec2/get-table-by-id (table-id)
   "Return the table that has `table-id'."
