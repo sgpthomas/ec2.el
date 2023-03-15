@@ -86,14 +86,6 @@
              :query "InstanceStatuses[*].[InstanceId,InstanceStatus.Status, SystemStatus.Status]")
    :columns '("Id" "Instance" "System")))
 
-;; (defvar ec2/instance-view--table
-;;   (ec2/table--create
-;;    :name "Instances"
-;;    :updater '(ec2/join-table ec2/instance--table ec2/instance-status--table)
-;;    :columns (-union (ec2/table-columns ec2/instance--table)
-;;                     (ec2/table-columns ec2/instance-status--table))
-;;    :render? t))
-
 (defvar ec2/security-groups--table
   (ec2/table--create
    :name "Security Groups"

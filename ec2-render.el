@@ -15,6 +15,8 @@
   datafn)
 
 (defun ec2/view-table (table)
+  "Create a view from a table."
+
   (ec2/view--create
    :name (ec2/table-name table)
    :columns (ec2/table-columns table)
@@ -22,7 +24,8 @@
 
 ;;;###autoload
 (defun ec2/render (&optional in-progress)
-  "Render the ec2 buffer"
+  "Render the ec2 buffer."
+
   (interactive)
 
   (with-current-buffer "*aws*"
@@ -32,7 +35,7 @@
     (let ((p (point)))
       ;; init buffer
       (ec2/setup-buffer)
-      ;; render each table
+      ;; render each view
       (-each ec2/views 'ec2/render-view)
       ;; insert last updated string
       (if in-progress
@@ -92,8 +95,8 @@
          (format "%s\n" it))))
 
 (defun ec2/--make-row (table-id row)
-  (let* ((row-text (string-join row "|"))
-         (compl (format "%s" row-text)))
+  (let* ((row-text (string-join row "│"))
+         (compl (format "│%s│" row-text)))
     (propertize compl
                 'ec2/table-id table-id
                 'ec2/table-row row)))
