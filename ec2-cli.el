@@ -24,6 +24,10 @@
         (lambda (x) (ec2/arrays-to-lists x))))))
 
 
+(cl-defun ec2/query-cmd (&key cmd query)
+  `(ec2/run-cmd-async '("ec2" ,@cmd "--query" ,query)))
+
+
 (defun ec2/arrays-to-lists (elem)
   "Convert lisp vectors into lists so that they are easier to process later."
   

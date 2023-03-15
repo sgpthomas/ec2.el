@@ -13,12 +13,13 @@
 (defun ec2/terminate (&optional args)
   (interactive
    (list (transient-args 'ec2/instances-transient)))
-  (let* ((cmd (list "ec2" "terminate-instances" "--instance-id" (ec2/get-col (point) "Id"))))
-    (deferred:$
-      (deferred:next
+  (when (y-or-n-p "Are you sure you want to terminate? ")
+    (let* ((cmd (list "ec2" "terminate-instances" "--instance-id" (ec2/get-col (point) "Id"))))
+      (deferred:$
+       (deferred:next
         (lambda () (ec2/run-cmd-async cmd)))
-      (deferred:nextc it
-        (lambda (_) (ec2/render))))))
+       (deferred:nextc it
+                       (lambda (_) (ec2/render)))))))
 
 (defun ec2/associate-ip (&optional args)
   (interactive
@@ -168,8 +169,7 @@
 		  :if (lambda () (ec2/--instance-state-is? "running")))
 		 ("r" "Resource Usage" ec2/resource-usage
 		  :if (lambda () (ec2/--instance-state-is? "running")))
-		 ("n" "Name" ec2/name-instance
-		  :if (lambda () (ec2/--instance-state-is? "running")))]
+		 ("n" "Name" ec2/name-instance)]
 		["Quit"
 		 ("q" "Quit" transient-quit-one)]])
 

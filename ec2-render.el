@@ -6,6 +6,21 @@
 (require 'dash)
 
 ;;;###autoload
+(cl-defstruct (ec2/view (:constructor ec2/view--create)
+                        (:copier nil))
+  "Defines how to view a data table."
+
+  name
+  columns
+  datafn)
+
+(defun ec2/view-table (table)
+  (ec2/view--create
+   :name (ec2/table-name table)
+   :columns (ec2/table-columns table)
+   :datafn (lambda () (ec2/table-data table))))
+
+;;;###autoload
 (defun ec2/render (&optional in-progress)
   "Render the ec2 buffer"
   (interactive)
@@ -18,7 +33,7 @@
       ;; init buffer
       (ec2/setup-buffer)
       ;; render each table
-      (-each ec2/tables 'ec2/render-table)
+      (-each ec2/views 'ec2/render-view)
       ;; insert last updated string
       (if in-progress
           (ec2/render-updating)
@@ -32,19 +47,17 @@
   "Initialize the buffer so that we can redraw."
   (delete-region (point-min) (point-max)))
 
-(defun ec2/render-table (table)
-  "Renders a table into the current buffer."
+(defun ec2/render-view (view)
+  "Renders a view into the current buffer."
 
-  (let* ((table (symbol-value table))
-         (name (ec2/table-name table))
-         (data (ec2/table-data table))
-         (cols (ec2/table-columns table))
-         (render? (ec2/table-render? table)))
-    (when render?
-      (insert (propertize name 'font-lock-face 'ec2/face-table-heading))
-      (insert "\n")
-      (insert (ec2/info-section name data cols))
-      (insert "\n"))))
+  (let* (;; (view (symbol-value view))
+         (name (ec2/view-name view))
+         (data (funcall (ec2/view-datafn view)))
+         (cols (ec2/view-columns view)))
+    (insert (propertize name 'font-lock-face 'ec2/face-table-heading))
+    (insert "\n")
+    (insert (ec2/info-section name data cols))
+    (insert "\n")))
 
 (defun ec2/render-updating ()
   "Renders a timestamp."

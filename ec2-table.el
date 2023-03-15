@@ -12,23 +12,18 @@
                          (:copier nil))
   "Table structure for storing the results of a command and information about how to display it."
 
-  (name nil :read-only t)
+  (name "Table" :read-only t)
   data
-  (cmd nil :read-only t)
-  (query nil :read-only t)
+  (updater nil :read-only t)
   (columns nil :read-only t)
-  (post-fn nil :read-only t)
-  render?)
+  (post-fn nil :read-only t))
 
 (defun ec2/update-table (table)
   "Use AWS Cli to update table data."
 
   (let ((table table))
     (deferred:$
-     (deferred:next
-      `(lambda ()
-         (ec2/run-cmd-async
-          `("ec2" ,@(ec2/table-cmd ,table) "--query" ,(ec2/table-query ,table)))))
+     (deferred:call 'eval (ec2/table-updater (eval table)))
      (deferred:nextc it
 		     `(lambda (data)
 			(setf (ec2/table-data ,table)
@@ -78,19 +73,30 @@
          (b-head (ec2/table-columns table-b))
          (joining (-intersection a-head b-head))
          (adding (-difference b-head a-head)))
-    (-map
-     (lambda (a-row)
-       (-flatten (-map
-                  (lambda (b-row)
-                    (if (-intersection
-                         (ec2/table-val-by-column table-a a-row joining)
-                         (ec2/table-val-by-column table-b b-row joining))
+    ;; if `table-b' is empty, just add "<none>" to all the rows in `table-a'
+    (if (null (ec2/table-data table-b))
+        (--map (append it (--map "<none>" adding))
+               (ec2/table-data table-a))
+      ;; else we do a proper table join
+      (-map
+       ;; loop over rows of `table-a'
+       (lambda (a-row)
+         ;; loop over rows of `table-b'
+         (-flatten (-map
+                    (lambda (b-row)
+                      ;; if `a-row' and `b-row' have a non-empty insection
+                      ;; when looking at only the `joining' values, then
+                      ;; we want to append the `adding' columns of `b-row'
+                      ;; to `a-row'.
+                      (if (-intersection
+                           (ec2/table-val-by-column table-a a-row joining)
+                           (ec2/table-val-by-column table-b b-row joining))
+                          (append a-row
+                                  (ec2/table-val-by-column table-b b-row adding))
                         (append a-row
-                                (ec2/table-val-by-column table-b b-row adding))
-                      (append a-row
-                              (--map "<none>" adding))))
-                  (ec2/table-data table-b))))
-     (ec2/table-data table-a))))
+                                (--map "<none>" adding))))
+                    (ec2/table-data table-b))))
+       (ec2/table-data table-a)))))
 
 (provide 'ec2-table)
 

@@ -51,10 +51,10 @@
 (defvar ec2/images--table
   (ec2/table--create
    :name "Images"
-   :cmd '("describe-images" "--owner" "self")
-   :query "Images[*].[Name, ImageId, State, Description, CreationDate]"
+   :updater (ec2/query-cmd
+             :cmd '("describe-images" "--owner" "self")
+             :query "Images[*].[Name, ImageId, State, Description, CreationDate]")
    :columns '("Name" "Id" "State" "Description" "Date")
-   ;; :sort-by "Date"
    :post-fn (lambda (data)
               (--> data
                    (--map (list-lift-n 4 #'parse-time-string it) it)
@@ -63,82 +63,95 @@
                               (time-less-p
                                (nth 4 a)
                                (nth 4 b))))
-                   (--map (list-lift-n 4 (lambda (x) (format-time-string "%D" x)) it) it)))
-   :render? t)
+                   (--map (list-lift-n 4 (lambda (x) (format-time-string "%D" x)) it) it))))
   "Table that stores images")
 
 (defvar ec2/instance--table
   (ec2/table--create
    :name "Instances"
-   :cmd '("describe-instances")
-   :query "Reservations[*].Instances[].[Tags[?Key == `Name`].Value | [0], InstanceType, InstanceId, State.Name, PublicIpAddress]"
    :columns '("Name" "Type" "Id" "State" "Ip Address")
-   :render? nil))
+   :updater (ec2/query-cmd
+             :cmd '("describe-instances")
+             :query (concat "Reservations[*].Instances[]."
+                            "["
+                            "Tags[?Key == `Name`]."
+                            "Value | [0], InstanceType, InstanceId, State.Name, PublicIpAddress"
+                            "]"))))
 
 (defvar ec2/instance-status--table
   (ec2/table--create
    :name "Instance Statuses"
-   :cmd '("describe-instance-status")
-   :query "InstanceStatuses[*].[InstanceId,InstanceStatus.Status, SystemStatus.Status]"
-   :columns '("Id" "Instance" "System")
-   :render? nil))
+   :updater (ec2/query-cmd
+             :cmd '("describe-instance-status")
+             :query "InstanceStatuses[*].[InstanceId,InstanceStatus.Status, SystemStatus.Status]")
+   :columns '("Id" "Instance" "System")))
 
-(defvar ec2/instance-view--table
-  (ec2/table--create
-   :name "Instance"
-   :data (ec2/join-table ec2/instance--table ec2/instance-status--table)
-   :columns (-union (ec2/table-columns ec2/instance--table)
-                    (ec2/table-columns ec2/instance-status--table))
-   :render? t))
+;; (defvar ec2/instance-view--table
+;;   (ec2/table--create
+;;    :name "Instances"
+;;    :updater '(ec2/join-table ec2/instance--table ec2/instance-status--table)
+;;    :columns (-union (ec2/table-columns ec2/instance--table)
+;;                     (ec2/table-columns ec2/instance-status--table))
+;;    :render? t))
 
 (defvar ec2/security-groups--table
   (ec2/table--create
    :name "Security Groups"
-   :cmd '("describe-security-groups")
-   :query "SecurityGroups[*].[GroupName, GroupId]"
-   :render? nil
+   :updater (ec2/query-cmd
+             :cmd '("describe-security-groups")
+             :query "SecurityGroups[*].[GroupName, GroupId]")
    :columns '("Name" "Id")))
 
 (defvar ec2/key-pairs--table
   (ec2/table--create
    :name "Key Pairs"
-   :cmd '("describe-key-pairs")
-   :query "KeyPairs[*].KeyName"
-   :render? nil))
+   :updater (ec2/query-cmd
+             :cmd '("describe-key-pairs")
+             :query "KeyPairs[*].KeyName")))
 
 (defvar ec2/instance-types--table
   (ec2/table--create
    :name "Instance Types"
-   :cmd '("describe-instance-types")
-   :query "InstanceTypes[*].[InstanceType, VCpuInfo.DefaultVCpus, MemoryInfo.SizeInMiB]"
-   :render? nil))
+   :updater (ec2/query-cmd
+             :cmd '("describe-instance-types")
+             :query (concat "InstanceTypes[*]."
+                            "[InstanceType, VCpuInfo.DefaultVCpus, MemoryInfo.SizeInMiB]"))))
 
 (defvar ec2/regions--table
   (ec2/table--create
    :name "Regions"
-   :cmd '("describe-regions")
-   :query "Regions[*].[RegionName]"
-   :render? nil
+   :updater (ec2/query-cmd
+             :cmd '("describe-regions")
+             :query "Regions[*].[RegionName]")
    :columns '("Name")))
 
 (defvar ec2/addresses--table
   (ec2/table--create
    :name "Addresses"
-   :cmd '("describe-addresses")
-   :query "Addresses[*].[InstanceId, PublicIp, NetworkBorderGroup]"
-   :columns '("Id" "Ip" "Region")
-   :render? nil))
+   :updater (ec2/query-cmd
+             :cmd '("describe-addresses")
+             :query "Addresses[*].[InstanceId, PublicIp, NetworkBorderGroup]")
+   :columns '("Id" "Ip" "Region")))
 
 (defvar ec2/tables
   (list 'ec2/images--table
         'ec2/instance--table
         'ec2/instance-status--table
-        'ec2/instance-view--table
+        ;; 'ec2/instance-view--table
         'ec2/security-groups--table
         'ec2/key-pairs--table
         'ec2/instance-types--table
         'ec2/regions--table
 	'ec2/addresses--table))
+
+(defvar ec2/views
+  (list
+   (ec2/view-table ec2/images--table)
+   (ec2/view--create
+    :name "Instances"
+    :columns (-union (ec2/table-columns ec2/instance--table)
+                     (ec2/table-columns ec2/instance-status--table))
+    :datafn (lambda () (ec2/join-table ec2/instance--table ec2/instance-status--table)))))
 
 (defvar ec2/sync-history
   '()
@@ -170,8 +183,7 @@
   (--map (format "%s" (nth 0 it))
          (ec2/table-data ec2/regions--table)))
 
-(defun ec2/change-region ()
-  )
+;; (defun ec2/change-region ())
 
 ;; ===== Major Mode ===== ;;
 (defvar ec2-mode-map

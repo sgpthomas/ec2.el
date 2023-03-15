@@ -123,13 +123,11 @@
 (defun ec2/deregister-ami (&optional args)
   (interactive
    (list (transient-args 'ec2/launch-from-ami)))
-  (let* ((cmd (list "ec2" "deregister-image" "--image-id" (ec2/get-col (point) "Id")))
-         (cmd (append cmd args)))
+  (let* ((cmd (list "ec2" "deregister-image" "--image-id" (ec2/get-col (point) "Id"))))
     (deferred:$
      (deferred:next
       (lambda () (ec2/run-cmd-async cmd)))
-     (deferred:nextc it
-                     (lambda (_) (ec2/render))))))
+     (deferred:nextc it (lambda (_) (ec2/render))))))
 
 ;;;###autoload
 (transient-define-prefix ec2/launch-from-ami ()
