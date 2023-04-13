@@ -81,21 +81,25 @@
       (-map
        ;; loop over rows of `table-a'
        (lambda (a-row)
-         ;; loop over rows of `table-b'
-         (-flatten (-map
-                    (lambda (b-row)
-                      ;; if `a-row' and `b-row' have a non-empty insection
-                      ;; when looking at only the `joining' values, then
-                      ;; we want to append the `adding' columns of `b-row'
-                      ;; to `a-row'.
-                      (if (-intersection
-                           (ec2/table-val-by-column table-a a-row joining)
-                           (ec2/table-val-by-column table-b b-row joining))
-                          (append a-row
-                                  (ec2/table-val-by-column table-b b-row adding))
-                        (append a-row
-                                (--map "<none>" adding))))
-                    (ec2/table-data table-b))))
+         ;; find all row of `table-b' that match with `a-row' at `joining' columns
+         (let ((matches (-non-nil
+                         (-map
+                          (lambda (b-row)
+                            ;; if `a-row' and `b-row' have a non-empty insection
+                            ;; when looking at only the `joining' values, then
+                            ;; we want to append the `adding' columns of `b-row'
+                            ;; to `a-row'.
+                            (let ((inter (-intersection
+                                          (ec2/table-val-by-column table-a a-row joining)
+                                          (ec2/table-val-by-column table-b b-row joining)))
+                                  (ad (ec2/table-val-by-column table-b b-row adding)))
+                              (if inter ad nil)))
+                          (ec2/table-data table-b)))))
+           ;; if we have more than 1 match, just take the first.
+           ;; if we have no matches, use "<none>" as a place holder
+           (if (length> matches 0)
+               (append a-row (car matches))
+             (append a-row (--map "<none>" adding)))))
        (ec2/table-data table-a)))))
 
 (provide 'ec2-table)
