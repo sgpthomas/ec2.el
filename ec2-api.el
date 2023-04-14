@@ -6,6 +6,7 @@
 (require 's)
 (require 'f)
 
+(require 'ec2-vars)
 (require 'ec2-table)
 
 (defun ec2/get-ip (name)

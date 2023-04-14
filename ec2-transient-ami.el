@@ -4,19 +4,13 @@
 
 ;;; Code:
 (require 'ec2-table)
+(require 'ec2-render)
+(require 'ec2-vars)
+(require 'ec2-transient-utils)
+(require 'ec2-cli)
 
 (require 'transient)
 (require 'dash)
-
-(defun ec2/transient-init-from-history (name obj &optional default)
-  "Set the default value to most recent item from history."
-  (let* ((hist (--find (equal name (car it))
-                       transient-history))
-         (recent (if hist (cadr hist) nil)))
-    (if recent
-        (transient-infix-set obj recent)
-      (when default
-        (transient-infix-set obj default)))))
 
 ;; ============== security groups ==============
 
@@ -120,7 +114,7 @@
       (deferred:nextc it
         (lambda (_) (ec2/render))))))
 
-(defun ec2/deregister-ami (&optional args)
+(defun ec2/deregister-ami (&optional _args)
   (interactive
    (list (transient-args 'ec2/launch-from-ami)))
   (let* ((cmd (list "ec2" "deregister-image" "--image-id" (ec2/get-col (point) "Id"))))
@@ -129,7 +123,6 @@
       (lambda () (ec2/run-cmd-async cmd)))
      (deferred:nextc it (lambda (_) (ec2/render))))))
 
-;;;###autoload
 (transient-define-prefix ec2/launch-from-ami ()
   "Launch EC2 Instance from AMI: %s"
   [:description (lambda () (let ((p (point)))

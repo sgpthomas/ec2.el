@@ -12,6 +12,7 @@
 (require 'dash)
 (require 'evil)
 
+(require 'ec2-vars)
 (require 'ec2-cli)
 (require 'ec2-table)
 (require 'ec2-render)
@@ -19,24 +20,7 @@
 (require 'ec2-transient-launch)
 (require 'ec2-api)
 
-;; Face definitions:
-(defgroup ec2/faces nil
-  "Faces used by aws mode.")
-
-(defface ec2/face-table-heading
-  '((t :foreground "IndianRed1"
-       :weight bold
-       :variable t
-       :inherit shortdoc-heading))
-  "Face for table title"
-  :group 'ec2/faces)
-
-(defface ec2/face-column-heading
-  '((t :weight bold))
-  "Face for column headings"
-  :group 'ec2/faces)
-
-
+;; Table definitions:
 (defun list-lift-n (n fn lst)
   "Helper function that applies `fn' to the `n' element
    in list and returns the resulting list"
@@ -47,7 +31,6 @@
      it)
    lst))
 
-;; Table definitions:
 (defvar ec2/images--table
   (ec2/table--create
    :name "Images"
@@ -161,21 +144,9 @@
     (when trans
       (funcall trans))))
 
-(defun ec2/examine ()
-  "Examine thing at point (debugging function.)"
-  (interactive)
-
-  (let* ((table-name (get-text-property (point) 'ec2/table-name))
-         (row-data (get-text-property (point) 'ec2/table-row))
-         (image-id (nth 1 row-data)))
-    (message "%s %s" row-data image-id)))
-
-
 (defun ec2/get-region (_ _ _)
   (--map (format "%s" (nth 0 it))
          (ec2/table-data ec2/regions--table)))
-
-;; (defun ec2/change-region ())
 
 ;; ===== Major Mode ===== ;;
 (defvar ec2-mode-map
@@ -186,7 +157,6 @@
     map)
   "Keymap for EC2 Mode")
 
-;;;###autoload
 (define-derived-mode ec2-mode special-mode "Ec2 Mode"
   "Mode for the AWS Dashboard."
   (buffer-disable-undo)
@@ -209,7 +179,7 @@
 
     (setq-local buffer-read-only t)))
 
-(defun ec2/refresh-data (&optional ignore-auto no-confirm)
+(defun ec2/refresh-data (&optional _ignore-auto _no-confirm)
   "Refresh EC2 data"
   (interactive)
 

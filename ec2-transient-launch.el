@@ -8,9 +8,13 @@
 (require 'transient)
 (require 'tmux)
 
+(require 'ec2-vars)
 (require 'ec2-table)
+(require 'ec2-cli)
+(require 'ec2-transient-utils)
+(require 'ec2-render)
 
-(defun ec2/terminate (&optional args)
+(defun ec2/terminate (&optional _)
   (interactive
    (list (transient-args 'ec2/instances-transient)))
   (when (y-or-n-p "Are you sure you want to terminate? ")
@@ -101,7 +105,7 @@
 		     (lambda (_) (ec2/update-table (ec2/get-table-by-id "Instances"))))
      (deferred:nextc it (lambda (_) (ec2/render))))))
 
-(defun ec2/get-addresses (a b c)
+(defun ec2/get-addresses (_ _ _)
   (--map (nth 1 it) (ec2/table-data ec2/addresses--table)))
 
 (defclass ec2/table-option--address (transient-option)
@@ -127,7 +131,7 @@
 		 ("a" "Assign" ec2/associate-ip)
 		 ("q" "Quit" transient-quit-one)]])
 
-(defun ec2/make-ami (&optional args)
+(defun ec2/make-ami (&optional _)
   (interactive
    (list (transient-args 'ec2/instances-transient)))
   (let* ((name (read-string "Name: "))
@@ -146,7 +150,6 @@
   (equal (string-trim (ec2/get-col (point) "State"))
 	 state))
 
-;;;###autoload
 (transient-define-prefix ec2/instances-transient ()
   "Manage Instance State"
   [:description (lambda () (let ((p (point)))

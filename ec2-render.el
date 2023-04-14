@@ -5,7 +5,8 @@
 ;;; Code:
 (require 'dash)
 
-;;;###autoload
+(require 'ec2-vars)
+
 (cl-defstruct (ec2/view (:constructor ec2/view--create)
                         (:copier nil))
   "Defines how to view a data table."
@@ -22,7 +23,6 @@
    :columns (ec2/table-columns table)
    :datafn (lambda () (ec2/table-data table))))
 
-;;;###autoload
 (defun ec2/render (&optional in-progress)
   "Render the ec2 buffer."
 
@@ -88,7 +88,7 @@
     (--> (cons columns data)
          (--map (--map (format "%s%s" (car it)
                                (make-string (- (cdr it) (length (car it))) ?\s))
-                       (-zip it colwidths))
+                       (-zip-pair it colwidths))
                 it)
          (--map (ec2/--make-row table-id it) it)
          (string-join it "\n")
