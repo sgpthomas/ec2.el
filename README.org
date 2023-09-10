@@ -17,7 +17,7 @@ You'll also need to install and configure the =awscli= tool. Follow Amazon's ins
 
 The main command is =ec2/dashboard=. Bind this to something convenient, or just call with =M-x ec2/dashboard=.
 
-Running this command will open up a buffer called =*aws*=. In the buffer, pressing =r= will reload the buffer with potentially new information. Right now, you have to press this after most operations. Reloading does not happen automatically.
+Running this command will open up a buffer called =*aws*=. In the buffer, pressing =gr= will reload the buffer with potentially new information. Right now, you have to press this after most operations. Reloading does not happen automatically.
 
 At the top should be AMI's that you have defined. If you don't have any AMI's defined, you'll want to do that separately (probably using the web interface).
 

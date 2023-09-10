@@ -7,7 +7,7 @@
 (require 'dash)
 (require 'json)
 
-(defun ec2/run-cmd-async (cmd)
+(cl-defun ec2/run-cmd-async (cmd &key (json t))
   "Run ec2 `cmd', and parse the resulting json."
 
   (let ((c cmd))
@@ -16,12 +16,12 @@
         `(lambda ()
            (deferred:process "aws" ,@c "--no-cli-pager")))
       (deferred:nextc it
-        (lambda (json-string)
-	  (if (not (string-empty-p json-string))
-	      (json-read-from-string json-string)
-	    "")))
-      (deferred:nextc it
-        (lambda (x) (ec2/arrays-to-lists x))))))
+        (lambda (raw-string)
+          (if json
+              (if (not (string-empty-p raw-string))
+	          (ec2/arrays-to-lists (json-read-from-string raw-string))
+	        "")
+            raw-string))))))
 
 
 (cl-defun ec2/query-cmd (&key cmd query)

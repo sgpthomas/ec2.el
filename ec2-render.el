@@ -4,6 +4,7 @@
 
 ;;; Code:
 (require 'dash)
+(require 'magit-section)
 
 (require 'ec2-vars)
 
@@ -29,50 +30,65 @@
   (interactive)
 
   (with-current-buffer "*aws*"
-    ;; turn off read only while we redraw the buffer
-    (setq-local buffer-read-only 'nil)
+    (save-excursion
+      (let ((p (point))
+            (inhibit-read-only t))
 
-    (let ((p (point)))
-      ;; init buffer
-      (ec2/setup-buffer)
-      ;; render each view
-      (-each ec2/views 'ec2/render-view)
-      ;; insert last updated string
-      (if in-progress
-          (ec2/render-updating)
-        (ec2/render-timestamp))
-      ;; go back to where we were
-      (goto-char p))
-    
-    (setq-local buffer-read-only t)))
+        ;; init buffer
+        (ec2/setup-buffer)
+
+        (when (ec2/table-data ec2/iam--table)
+          (insert (propertize "User:" 'face 'magit-section-heading))
+          (insert (format "\t%s\n" (ec2/table-data ec2/iam--table))))
+
+        (when (ec2/table-data ec2/region--table)
+          (insert (propertize "Region:" 'face 'magit-section-heading))
+          (insert (format "\t%s\n" (ec2/table-data ec2/region--table))))
+
+        ;; insert last updated string
+        ;; (if in-progress
+        ;;     (ec2/render-updating)
+        ;;   (ec2/render-timestamp))
+
+        ;; render each view
+        (magit-insert-section (magit-section)
+          (-each ec2/views 'ec2/render-view))
+
+        (goto-char (point))
+
+        ))))
 
 (defun ec2/setup-buffer ()
   "Initialize the buffer so that we can redraw."
-  (delete-region (point-min) (point-max)))
+  (erase-buffer))
 
 (defun ec2/render-view (view)
   "Renders a view into the current buffer."
 
-  (let* (;; (view (symbol-value view))
-         (name (ec2/view-name view))
+  (let* ((name (ec2/view-name view))
          (data (funcall (ec2/view-datafn view)))
          (cols (ec2/view-columns view)))
-    (insert (propertize name 'font-lock-face 'ec2/face-table-heading))
-    (insert "\n")
-    (insert (ec2/info-section name data cols))
-    (insert "\n")))
+    (magit-insert-section (magit-section (ec2/view-name view) nil)
+      (magit-insert-heading (ec2/view-name view))
+      (magit-insert-section-body
+        (insert (ec2/info-section name data cols))
+        (insert "\n")))))
 
 (defun ec2/render-updating ()
   "Renders a timestamp."
 
-  (insert (propertize "Updating..."
-                      'font-lock-face '(italic shadow))))
+  (setq mode-line-process `((:propertize "Updating... " face 'warning)))
+  (force-mode-line-update))
 
 (defun ec2/render-timestamp ()
   "Renders a timestamp."
 
-  (insert (propertize (format "Last Updated: %s" (current-time-string))
-                      'font-lock-face '(italic shadow))))
+  (setq mode-line-process nil
+        ;; `((:propertize ,(format "Last Updated: %s " (current-time-string))
+        ;;                face 'success))
+        )
+  (force-mode-line-update)
+  )
 
 (defun ec2/info-section (table-id data columns)
   "Returns the input data using `column-model' rendered as a table."

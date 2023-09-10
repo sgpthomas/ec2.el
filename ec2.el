@@ -108,6 +108,18 @@
              :query "Addresses[*].[InstanceId, PublicIp, NetworkBorderGroup]")
    :columns '("Id" "Ip" "Region")))
 
+(defvar ec2/iam--table
+  (ec2/table--create
+   :name "Username"
+   :updater '(ec2/run-cmd-async '("iam" "get-user" "--query" "User.UserName"))
+   :post-fn (lambda (t) t)))
+
+(defvar ec2/region--table
+  (ec2/table--create
+   :name "Region"
+   :updater '(ec2/run-cmd-async '("configure" "get" "region") :json nil)
+   :post-fn (lambda (t) t)))
+
 (defvar ec2/tables
   (list 'ec2/images--table
         'ec2/instance--table
@@ -117,7 +129,9 @@
         'ec2/key-pairs--table
         'ec2/instance-types--table
         'ec2/regions--table
-	'ec2/addresses--table))
+	'ec2/addresses--table
+        'ec2/iam--table
+        'ec2/region--table))
 
 (defvar ec2/views
   (list
@@ -153,11 +167,12 @@
   (let ((map (make-keymap)))
     ;; (suppress-keymap map t)
     (define-key map "."           'ec2/examine)
-    (define-key map "\C-i"        'ec2/transient) ; tab
+    (define-key map (kbd "RET")   'ec2/transient) ; tab
+    (define-key map ","           'magit-section-cycle)
     map)
   "Keymap for EC2 Mode")
 
-(define-derived-mode ec2-mode special-mode "Ec2 Mode"
+(define-derived-mode ec2-mode magit-section-mode "Ec2 Mode"
   "Mode for the AWS Dashboard."
   (buffer-disable-undo)
   (evil-make-overriding-map ec2-mode-map 'normal)
@@ -169,28 +184,37 @@
   (interactive)
   (let ((buf (get-buffer-create "*aws*")))
     (switch-to-buffer buf)
-    (setq-local buffer-read-only 'nil)
     ;; clear buffer. probably don't need to do this ultimately
     (with-current-buffer buf
-      (ec2/setup-buffer)
-      (ec2-mode)
-      (ec2/render)
-      (ec2/refresh-data))
-
-    (setq-local buffer-read-only t)))
+      (setq-local buffer-read-only t)
+      (let ((inhibit-read-only t))
+        (ec2/setup-buffer)
+        (ec2-mode)
+        (ec2/render)
+        (ec2/refresh-data)))))
 
 (defun ec2/refresh-data (&optional _ignore-auto _no-confirm)
   "Refresh EC2 data"
   (interactive)
 
   (deferred:$
-   (deferred:next (lambda (_) (ec2/render t)))
+   ;; (deferred:next (lambda (_) (ec2/render t)))
+   ;; (deferred:next (lambda (_) (setq-local ec2/updating t)))
+   (deferred:next (lambda (_) (message "starting update")))
+   (deferred:nextc it (lambda (_) (ec2/render-updating)))
    ;; update all tables in parallel
    (deferred:parallel
     (-map 'ec2/update-table ec2/tables))
    ;; once everything is updated, render
-   (deferred:nextc it (lambda (_) (ec2/render)))))
+   (deferred:nextc it (lambda (_) (ec2/render)))
+   (deferred:nextc it (lambda (_) (ec2/render-timestamp)))
+   (deferred:nextc it (lambda (_) (message "done")))
+   (deferred:error it (lambda (err) (message "something went wrong: %s" err)))
+   ;; (deferred:nextc it (lambda (_) (setq-local ec2/updating nil)))
+   ))
 
 (provide 'ec2)
 
 ;;; ec2.el ends here
+
+(deferred:flush-queue!)
