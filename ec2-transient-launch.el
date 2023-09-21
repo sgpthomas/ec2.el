@@ -14,6 +14,36 @@
 (require 'ec2-transient-utils)
 (require 'ec2-render)
 
+(defun ec2/start (&optional _)
+  (interactive
+   (list (transient-args 'ec2/instances-transient)))
+  (let* ((cmd (list "ec2" "start-instances" "--instance-id" (ec2/get-col (point) "Id"))))
+    (deferred:$
+     (deferred:next
+      (lambda () (ec2/run-cmd-async cmd)))
+     (deferred:nextc it
+                     (lambda (_) (ec2/render))))))
+
+(defun ec2/stop (&optional _)
+  (interactive
+   (list (transient-args 'ec2/instances-transient)))
+  (let* ((cmd (list "ec2" "stop-instances" "--instance-id" (ec2/get-col (point) "Id"))))
+    (deferred:$
+     (deferred:next
+      (lambda () (ec2/run-cmd-async cmd)))
+     (deferred:nextc it
+                     (lambda (_) (ec2/render))))))
+
+(defun ec2/reboot (&optional _)
+  (interactive
+   (list (transient-args 'ec2/instances-transient)))
+  (let* ((cmd (list "ec2" "reboot-instances" "--instance-id" (ec2/get-col (point) "Id"))))
+    (deferred:$
+     (deferred:next
+      (lambda () (ec2/run-cmd-async cmd)))
+     (deferred:nextc it
+                     (lambda (_) (ec2/render))))))
+
 (defun ec2/terminate (&optional _)
   (interactive
    (list (transient-args 'ec2/instances-transient)))
@@ -156,7 +186,14 @@
                         (format "Managing instance: %s"
                                 (ec2/get-col p "Id"))))
 		["Actions"
-		 ("t" "Terminate" ec2/terminate)
+                 ("S" "Start" ec2/start
+                  :if (lambda () (ec2/--instance-state-is? "stopped")))
+                 ("S" "Stop" ec2/stop
+                  :if (lambda () (ec2/--instance-state-is? "running")))
+                 ("R" "Reboot" ec2/reboot
+                  :if (lambda () (ec2/--instance-state-is? "running")))
+		 ("T" "Terminate" ec2/terminate
+                  :if (lambda () (ec2/--instance-state-is? "running")))
 		 ("m" "Make AMI" ec2/make-ami
 		  :if (lambda () (ec2/--instance-state-is? "running")))
 		 ("i" "Assign IP Address" ec2/assign-ip-address
