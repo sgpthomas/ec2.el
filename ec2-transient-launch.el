@@ -135,6 +135,23 @@
 		     (lambda (_) (ec2/update-table (ec2/get-table-by-id "Instances"))))
      (deferred:nextc it (lambda (_) (ec2/render))))))
 
+(defun ec2/external-console (&optional pt)
+  (interactive "d")
+  (let* ((instance-id (ec2/get-col pt "Id"))
+         (region
+          (if (ec2/table-data ec2/region--table)
+              (s-trim (ec2/table-data ec2/region--table))
+            "us-east-2"))
+         (console-url
+          (s-join "/"
+                  (list
+                   (format "https://%s.console.aws.amazon.com" region)
+                   "ec2"
+                   (format "home?region=%s#InstanceDetails:instanceId=%s"
+                           region
+                           instance-id)))))
+    (browse-url console-url)))
+
 (defun ec2/get-addresses (_ _ _)
   (--map (nth 1 it) (ec2/table-data ec2/addresses--table)))
 
@@ -209,7 +226,8 @@
 		  :if (lambda () (ec2/--instance-state-is? "running")))
 		 ("r" "Resource Usage" ec2/resource-usage
 		  :if (lambda () (ec2/--instance-state-is? "running")))
-		 ("n" "Name" ec2/name-instance)]
+		 ("n" "Name" ec2/name-instance)
+                 ("x" "Web Console" ec2/external-console)]
 		["Quit"
 		 ("q" "Quit" transient-quit-one)]])
 
