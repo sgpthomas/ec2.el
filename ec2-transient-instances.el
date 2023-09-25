@@ -37,7 +37,7 @@
 (defun ec2/reboot (&optional _)
   (interactive
    (list (transient-args 'ec2/instances-transient)))
-  (let* ((cmd (list "ec2" "wrong-instances" "--instance-id" (ec2/get-col (point) "Id"))))
+  (let* ((cmd (list "ec2" "reboot-instances" "--instance-id" (ec2/get-col (point) "Id"))))
     (deferred:$
      (deferred:next
       (lambda () (ec2/run-cmd-async cmd)))
