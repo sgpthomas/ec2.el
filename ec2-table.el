@@ -15,20 +15,24 @@
   data
   (updater nil :read-only t)
   (columns nil :read-only t)
-  (post-fn nil :read-only t))
+  (post-fn nil :read-only t)
+  (static nil :read-only t))
 
 (defun ec2/update-table (table)
   "Use AWS Cli to update table data."
 
   (let ((table table))
-    (deferred:$
-     (deferred:call 'eval (ec2/table-updater (eval table)))
-     (deferred:nextc it
-		     `(lambda (data)
-			(setf (ec2/table-data ,table)
-                              (if (functionp (ec2/table-post-fn ,table))
-                                  (funcall (ec2/table-post-fn ,table) data)
-                                data)))))))
+    ;; unless the table is static and already has data,
+    ;; call the update function on the table
+    (unless (and (ec2/table-static (eval table)) (ec2/table-data (eval table)))
+      (deferred:$
+       (deferred:call 'eval (ec2/table-updater (eval table)))
+       (deferred:nextc it
+		       `(lambda (data)
+			  (setf (ec2/table-data ,table)
+                                (if (functionp (ec2/table-post-fn ,table))
+                                    (funcall (ec2/table-post-fn ,table) data)
+                                  data))))))))
 
 (defun ec2/get-table-by-id (table-id)
   "Return the table that has `table-id'."

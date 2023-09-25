@@ -8,7 +8,7 @@
 (require 'transient)
 (require 'tmux)
 
-(require 'ec2-vars)
+(require 'ec2-faces)
 (require 'ec2-table)
 (require 'ec2-cli)
 (require 'ec2-transient-utils)
@@ -37,12 +37,15 @@
 (defun ec2/reboot (&optional _)
   (interactive
    (list (transient-args 'ec2/instances-transient)))
-  (let* ((cmd (list "ec2" "reboot-instances" "--instance-id" (ec2/get-col (point) "Id"))))
+  (let* ((cmd (list "ec2" "wrong-instances" "--instance-id" (ec2/get-col (point) "Id"))))
     (deferred:$
      (deferred:next
       (lambda () (ec2/run-cmd-async cmd)))
      (deferred:nextc it
-                     (lambda (_) (ec2/render))))))
+                     (lambda (_) (ec2/render)))
+     (deferred:error it (lambda (err)
+                          (setq ec2/last-error-message err)
+                          (ec2/render))))))
 
 (defun ec2/terminate (&optional _)
   (interactive
@@ -200,21 +203,29 @@
 (transient-define-prefix ec2/instances-transient ()
   "Manage Instance State"
   [:description (lambda () (let ((p (point)))
-                        (format "Managing instance: %s"
-                                (ec2/get-col p "Id"))))
-		["Actions"
+                             (concat (propertize "Managing instance: "
+                                                 'face 'transient-heading)
+                                     (propertize (format "%s"
+                                                         (ec2/get-col p "Id"))
+                                                 'face 'default))))
+                ["State"
                  ("S" "Start" ec2/start
-                  :if (lambda () (ec2/--instance-state-is? "stopped")))
+                  :if (lambda () (or (ec2/--instance-state-is? "stopped")
+                                     (ec2/--instance-state-is? "stopping"))))
                  ("S" "Stop" ec2/stop
                   :if (lambda () (ec2/--instance-state-is? "running")))
                  ("R" "Reboot" ec2/reboot
                   :if (lambda () (ec2/--instance-state-is? "running")))
 		 ("T" "Terminate" ec2/terminate
-                  :if (lambda () (ec2/--instance-state-is? "running")))
-		 ("m" "Make AMI" ec2/make-ami
+                  :if (lambda () (ec2/--instance-state-is? "running")))]
+                ["Metadata"
+                 ("m" "Make AMI" ec2/make-ami
 		  :if (lambda () (ec2/--instance-state-is? "running")))
 		 ("i" "Assign IP Address" ec2/assign-ip-address
-		  :if (lambda () (ec2/--instance-state-is? "running")))]
+		  :if (lambda () (ec2/--instance-state-is? "running")))
+                 ("r" "Resource Usage" ec2/resource-usage
+		  :if (lambda () (ec2/--instance-state-is? "running")))
+		 ("n" "Name" ec2/name-instance)]
 		["Interact"
 		 ("e" "Eshell" ec2/ssh-into-instance
 		  :if (lambda () (ec2/--instance-state-is? "running")))
@@ -224,13 +235,10 @@
 		  :if (lambda () (ec2/--instance-state-is? "running")))
 		 ("s" "Tmux Session" ec2/tmux-session
 		  :if (lambda () (ec2/--instance-state-is? "running")))
-		 ("r" "Resource Usage" ec2/resource-usage
-		  :if (lambda () (ec2/--instance-state-is? "running")))
-		 ("n" "Name" ec2/name-instance)
                  ("x" "Web Console" ec2/external-console)]
 		["Quit"
 		 ("q" "Quit" transient-quit-one)]])
 
-(provide 'ec2-transient-launch)
+(provide 'ec2-transient-instances)
 
 ;;; ec2-transient-launch.el ends here

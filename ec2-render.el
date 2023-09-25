@@ -6,7 +6,7 @@
 (require 'dash)
 (require 'magit-section)
 
-(require 'ec2-vars)
+(require 'ec2-faces)
 
 (cl-defstruct (ec2/view (:constructor ec2/view--create)
                         (:copier nil))
@@ -24,39 +24,40 @@
    :columns (ec2/table-columns table)
    :datafn (lambda () (ec2/table-data table))))
 
-(defun ec2/render (&optional in-progress)
+(defun ec2/render ()
   "Render the ec2 buffer."
 
   (interactive)
 
   (with-current-buffer "*aws*"
-    (save-excursion
-      (let ((p (point))
-            (inhibit-read-only t))
+    (let ((inhibit-read-only t)
+          (p (point)))
+      ;; init buffer
+      (ec2/setup-buffer)
 
-        ;; init buffer
-        (ec2/setup-buffer)
+      (insert (propertize "User:\t" 'face 'magit-section-heading))
+      (if (ec2/table-data ec2/iam--table)
+          (insert (format "%s\n" (ec2/table-data ec2/iam--table)))
+        (insert "...\n"))
 
-        (when (ec2/table-data ec2/iam--table)
-          (insert (propertize "User:" 'face 'magit-section-heading))
-          (insert (format "\t%s\n" (ec2/table-data ec2/iam--table))))
 
-        (when (ec2/table-data ec2/region--table)
-          (insert (propertize "Region:" 'face 'magit-section-heading))
-          (insert (format "\t%s\n" (ec2/table-data ec2/region--table))))
+      (insert (propertize "Region:\t" 'face 'magit-section-heading))
+      (if (ec2/table-data ec2/region--table)
+          (insert (format "%s\n" (ec2/table-data ec2/region--table)))
+        (insert "...\n"))
+      (insert "\n")
 
-        ;; insert last updated string
-        ;; (if in-progress
-        ;;     (ec2/render-updating)
-        ;;   (ec2/render-timestamp))
+      ;; render each view
+      (magit-insert-section (magit-section)
+        (-each ec2/views 'ec2/render-view)
 
-        ;; render each view
-        (magit-insert-section (magit-section)
-          (-each ec2/views 'ec2/render-view))
+        (when ec2/last-error-message
+          (magit-insert-section (magit-section)
+            (magit-insert-heading "Error")
+            (magit-insert-section-body
+              (insert (format "%s" ec2/last-error-message))))))
 
-        (goto-char (point))
-
-        ))))
+      (goto-char p))))
 
 (defun ec2/setup-buffer ()
   "Initialize the buffer so that we can redraw."
@@ -77,32 +78,32 @@
 (defun ec2/render-updating ()
   "Renders a timestamp."
 
-  (setq mode-line-process `((:propertize "Updating... " face 'warning)))
-  (force-mode-line-update))
+  (with-current-buffer (get-buffer "*aws*")
+    (if ec2/in-progress-updates
+        (setq mode-line-process
+              `((:propertize "Updating... "
+                             face warning
+                             help-echo ,(s-join "\n" ec2/in-progress-updates))))
+      (setq mode-line-process nil))
 
-(defun ec2/render-timestamp ()
-  "Renders a timestamp."
-
-  (setq mode-line-process nil
-        ;; `((:propertize ,(format "Last Updated: %s " (current-time-string))
-        ;;                face 'success))
-        )
-  (force-mode-line-update)
-  )
+    (force-mode-line-update)))
 
 (defun ec2/info-section (table-id data columns)
   "Returns the input data using `column-model' rendered as a table."
 
-  (let ((colwidths
-         (--reduce-from
-          (-map '-max (-zip-lists acc (-map 'length it)))
-          (-map 'length columns) ; init acc to lengths of titles
-          data))
-        (columns (--map (propertize it
-                                    'font-lock-face 'ec2/face-column-heading)
-                        columns)))
+  (let* (;; make sure the data is all strings
+         (data (--map (--map (format "%s" it) it) data))
+         (colwidths
+          (--reduce-from
+           (-map '-max (-zip-lists acc (-map 'length it)))
+           (-map 'length columns) ; init acc to lengths of titles
+           data))
+         (columns (--map (propertize it
+                                     'font-lock-face 'ec2/face-column-heading)
+                         columns)))
     (--> (cons columns data)
-         (--map (--map (format "%s%s" (car it)
+         (--map (--map (format "%s%s"
+                               (car it)
                                (make-string (- (cdr it) (length (car it))) ?\s))
                        (-zip-pair it colwidths))
                 it)

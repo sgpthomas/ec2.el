@@ -1,4 +1,4 @@
-;;; ec2-vars.el -*- lexical-binding: t; -*-
+;;; ec2-faces.el -*- lexical-binding: t; -*-
 
 ;; Copyright (C) 2022 Samuel Thomas
 
@@ -24,6 +24,6 @@
   "Face for column headings"
   :group 'ec2/faces)
 
-(provide 'ec2-vars)
+(provide 'ec2-faces)
 
-;;; ec2-vars.el ends here
+;;; ec2-faces.el ends here

@@ -5,7 +5,7 @@
 ;;; Code:
 (require 'ec2-table)
 (require 'ec2-render)
-(require 'ec2-vars)
+(require 'ec2-faces)
 (require 'ec2-transient-utils)
 (require 'ec2-cli)
 
@@ -73,16 +73,26 @@
                                    'face 'font-lock-type-face)
                        (propertize "\t" 'display 'space)
                        (propertize (format "%s GiB ram" (/ (nth 2 row) 1024.0))
-                                   'face 'font-lock-doc-face))
-               )))))
+                                   'face 'font-lock-doc-face)))))))
+    ;; completing read only uses the car of each row
+    ;; in the ec2/instances-types--table
     (completing-read
      "Type: "
      (ec2/table-data ec2/instance-types--table)
      nil
      t)))
 
+(defclass ec2/table-option--instance-type (transient-option)
+  ((ignored :initarg :ignored)))
+
+(cl-defmethod transient-infix-set ((obj ec2/table-option--instance-type) value)
+  "Look up value in table"
+  (let* ((row (--find (equal (car it) value) (ec2/table-data ec2/instance-types--table)))
+         (sid (car row)))
+    (oset obj value sid)))
+
 (transient-define-infix ec2/launch-from-ami:--instance-type ()
-  :class 'transient-option
+  :class 'ec2/table-option--instance-type
   :description "Type of instances to launch"
   :key "t"
   :argument "--instance-type="

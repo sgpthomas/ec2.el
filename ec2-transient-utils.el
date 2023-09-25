@@ -7,6 +7,7 @@
 
 (defun ec2/transient-init-from-history (name obj &optional default)
   "Set the default value to most recent item from history."
+
   (let* ((hist (--find (equal name (car it))
                        transient-history))
          (recent (if hist (cadr hist) nil)))

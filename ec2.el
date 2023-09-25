@@ -3,7 +3,7 @@
 ;; Copyright (C) 2022 Samuel Thomas
 
 ;; Author: Samuel Thomas <sgt@cs.utexas.edu>
-;; Package-Requires: (dash transient deferred json evil tmux f)
+;; Package-Requires: (dash transient deferred json evil tmux f magit-section s)
 
 ;;; Code:
 
@@ -11,14 +11,13 @@
 (require 'deferred)
 (require 'dash)
 (require 'evil)
+(require 's)
+(require 'f)
 
-(require 'ec2-vars)
-(require 'ec2-cli)
 (require 'ec2-table)
 (require 'ec2-render)
 (require 'ec2-transient-ami)
-(require 'ec2-transient-launch)
-(require 'ec2-api)
+(require 'ec2-transient-instances)
 
 ;; Table definitions:
 (defun list-lift-n (n fn lst)
@@ -90,7 +89,9 @@
    :updater (ec2/query-cmd
              :cmd '("describe-instance-types")
              :query (concat "InstanceTypes[*]."
-                            "[InstanceType, VCpuInfo.DefaultVCpus, MemoryInfo.SizeInMiB]"))))
+                            "[InstanceType, VCpuInfo.DefaultVCpus, MemoryInfo.SizeInMiB]"))
+   :columns '("Type" "CPUs" "Memory")
+   :static t))
 
 (defvar ec2/regions--table
   (ec2/table--create
@@ -98,7 +99,8 @@
    :updater (ec2/query-cmd
              :cmd '("describe-regions")
              :query "Regions[*].[RegionName]")
-   :columns '("Name")))
+   :columns '("Name")
+   :static t))
 
 (defvar ec2/addresses--table
   (ec2/table--create
@@ -112,19 +114,20 @@
   (ec2/table--create
    :name "Username"
    :updater '(ec2/run-cmd-async '("iam" "get-user" "--query" "User.UserName"))
-   :post-fn (lambda (t) t)))
+   :post-fn (lambda (x) x)
+   :static t))
 
 (defvar ec2/region--table
   (ec2/table--create
    :name "Region"
    :updater '(ec2/run-cmd-async '("configure" "get" "region") :json nil)
-   :post-fn (lambda (t) t)))
+   :post-fn (lambda (x) (s-trim x))
+   :static t))
 
 (defvar ec2/tables
   (list 'ec2/images--table
         'ec2/instance--table
         'ec2/instance-status--table
-        ;; 'ec2/instance-view--table
         'ec2/security-groups--table
         'ec2/key-pairs--table
         'ec2/instance-types--table
@@ -147,7 +150,13 @@
   "Variable to store history.")
 
 (defvar ec2/launch-instance-count 1
-  "This is documentation")
+  "How many instances to launch for each launch operation.")
+
+(defvar ec2/last-error-message 'nil
+  "The last error message")
+
+(defvar ec2/in-progress-updates nil
+  "List of tables that are being updated")
 
 (defun ec2/transient ()
   (interactive)
@@ -193,28 +202,53 @@
         (ec2/render)
         (ec2/refresh-data)))))
 
+(setq ec2/in-progress-updates
+      (remove "Region" ec2/in-progress-updates))
+
+
 (defun ec2/refresh-data (&optional _ignore-auto _no-confirm)
   "Refresh EC2 data"
   (interactive)
 
   (deferred:$
-   ;; (deferred:next (lambda (_) (ec2/render t)))
-   ;; (deferred:next (lambda (_) (setq-local ec2/updating t)))
-   (deferred:next (lambda (_) (message "starting update")))
-   (deferred:nextc it (lambda (_) (ec2/render-updating)))
+   (deferred:next (lambda (_) (ec2/render-updating)))
    ;; update all tables in parallel
    (deferred:parallel
-    (-map 'ec2/update-table ec2/tables))
-   ;; once everything is updated, render
-   (deferred:nextc it (lambda (_) (ec2/render)))
-   (deferred:nextc it (lambda (_) (ec2/render-timestamp)))
-   (deferred:nextc it (lambda (_) (message "done")))
-   (deferred:error it (lambda (err) (message "something went wrong: %s" err)))
-   ;; (deferred:nextc it (lambda (_) (setq-local ec2/updating nil)))
-   ))
+    (-map (lambda (tbl)
+            (deferred:$
+             (deferred:next (lambda ()
+                              (add-to-list 'ec2/in-progress-updates
+                                           (ec2/table-name (eval tbl)))))
+             (deferred:nextc it (lambda (_) (ec2/render-updating)))
+             (deferred:nextc it (lambda (_) (ec2/update-table tbl)))
+             (deferred:nextc it (lambda (_)
+                                  (setq ec2/in-progress-updates
+                                        (delete (ec2/table-name (eval tbl))
+                                                ec2/in-progress-updates))))
+             (deferred:nextc it (lambda (_) (ec2/render)))
+             (deferred:nextc it (lambda (_) (ec2/render-updating)))
+             (deferred:error it (lambda (err) (message "Error: %s" err)))))
+          ec2/tables))
+   (deferred:nextc it (lambda (_) (ec2/render-updating)))
+   (deferred:error it (lambda (err) (message "Error: %s" err)))))
+
+
+;; api endpoints
+(defun ec2/get-ip (name)
+  "Return the IP of the first instance named `name'."
+
+  (let* ((header (ec2/table-columns ec2/instance--table))
+	 (index (--find-index (string-equal "Name" it) header))
+	 (rows (ec2/table-data ec2/instance--table))
+	 (row (--find (string-equal name (nth index it)) rows))
+	 (ip-index (--find-index (string-equal "Ip Address" it) header)))
+    (s-trim (nth ip-index row))))
+
+(defun ec2/tramp (name &rest path)
+  (let* ((ip (ec2/get-ip name)))
+    (concat (format "/ssh:ubuntu@%s:" ip)
+	    (s-join "/" path))))
 
 (provide 'ec2)
 
 ;;; ec2.el ends here
-
-(deferred:flush-queue!)
