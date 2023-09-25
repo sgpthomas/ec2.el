@@ -31,7 +31,7 @@
 
   (with-current-buffer "*aws*"
     (let ((inhibit-read-only t)
-          (p (point)))
+          (lineno (line-number-at-pos (point))))
       ;; init buffer
       (ec2/setup-buffer)
 
@@ -57,7 +57,7 @@
             (magit-insert-section-body
               (insert (format "%s" ec2/last-error-message))))))
 
-      (goto-char p))))
+      (goto-line lineno))))
 
 (defun ec2/setup-buffer ()
   "Initialize the buffer so that we can redraw."
