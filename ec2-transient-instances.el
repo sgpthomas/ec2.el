@@ -101,6 +101,14 @@
 	(ansi-term "/bin/zsh" ansi-term-buffer-name)
 	(comint-send-string (concat "*" ansi-term-buffer-name "*") ssh-cmd)))))
 
+(defun ec2/remote-command (&optional pt)
+  (interactive "d")
+  (let* ((ssh-addr (ec2/get-col pt "Ip Address"))
+         (cmd-to-run (read-string "Command: "))
+         (ssh-cmd
+	  (format "ssh -o StrictHostKeyChecking=no ubuntu@%s %s" ssh-addr cmd-to-run)))
+    (shell-command ssh-cmd)))
+
 (defun ec2/tmux-session (&optional pt)
   (interactive "d")
   (let* ((ssh-addr (ec2/get-col pt "Ip Address"))
@@ -232,6 +240,8 @@
                  ("d" "Dired" ec2/open-dired
 		  :if (lambda () (ec2/--instance-state-is? "running")))
 		 ("a" "Ansi-term" ec2/ssh-ansi-term
+		  :if (lambda () (ec2/--instance-state-is? "running")))
+                 ("c" "Command" ec2/remote-command
 		  :if (lambda () (ec2/--instance-state-is? "running")))
 		 ("s" "Tmux Session" ec2/tmux-session
 		  :if (lambda () (ec2/--instance-state-is? "running")))
