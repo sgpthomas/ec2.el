@@ -124,6 +124,14 @@
    :post-fn (lambda (x) (s-trim x))
    :static t))
 
+;; Would be cool to have something like this so that I could
+;; always have the status of a few commands from my machine
+;; without actually going into it.
+;;
+;; (defvar ec2/instance-commands
+;;   '((i-071f6b6638be7942c . "podman logs -lt --tail 10")
+;;     (i-071f6b6638be7942c . "podman ps")))
+
 (defvar ec2/tables
   (list 'ec2/images--table
         'ec2/instance--table
@@ -248,6 +256,16 @@
   (let* ((ip (ec2/get-ip name)))
     (concat (format "/ssh:ubuntu@%s:" ip)
 	    (s-join "/" path))))
+
+(defun ec2/ip-from-id (id)
+  "Return the IP of the first instance named `name'."
+
+  (let* ((header (ec2/table-columns ec2/instance--table))
+	 (index (--find-index (string-equal "Id" it) header))
+	 (rows (ec2/table-data ec2/instance--table))
+	 (row (--find (string-equal id (nth index it)) rows))
+	 (ip-index (--find-index (string-equal "Ip Address" it) header)))
+    (s-trim (nth ip-index row))))
 
 (provide 'ec2)
 

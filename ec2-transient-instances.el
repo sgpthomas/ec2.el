@@ -241,7 +241,7 @@
 		  :if (lambda () (ec2/--instance-state-is? "running")))
 		 ("a" "Ansi-term" ec2/ssh-ansi-term
 		  :if (lambda () (ec2/--instance-state-is? "running")))
-                 ("c" "Command" ec2/remote-command
+                 ("!" "Command" ec2/remote-command
 		  :if (lambda () (ec2/--instance-state-is? "running")))
 		 ("s" "Tmux Session" ec2/tmux-session
 		  :if (lambda () (ec2/--instance-state-is? "running")))
