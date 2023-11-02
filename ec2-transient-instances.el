@@ -225,7 +225,8 @@
                  ("R" "Reboot" ec2/reboot
                   :if (lambda () (ec2/--instance-state-is? "running")))
 		 ("T" "Terminate" ec2/terminate
-                  :if (lambda () (ec2/--instance-state-is? "running")))]
+                  :if (lambda () (or (ec2/--instance-state-is? "running")
+                                     (ec2/--instance-state-is? "stopped"))))]
                 ["Metadata"
                  ("m" "Make AMI" ec2/make-ami
 		  :if (lambda () (ec2/--instance-state-is? "running")))
